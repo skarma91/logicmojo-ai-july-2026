@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 3.2 - Attention</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 3 &middot; Class 3.2</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 3 &middot; NLP to Transformers &middot; Class 3.2</span>
+      <h1>Attention</h1>
+      <p class="lead">The one mechanism behind every large language model. Each word looks at every other word and pulls in what matters. Decoded, symbol by symbol.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The problem<span class="step-note">A word's meaning depends on the right other words.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Query, key, value<span class="step-note">Each token asks, offers, and carries.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">The formula, decoded<span class="step-note">Score, scale, softmax, blend.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Self-attention<span class="step-note">Every token, in parallel.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The heart of it</span>This single operation is the core of the transformer in class 3.3 (The Transformer), and every LLM ahead.</div>
+            <div class="pill"><span class="pill-tag">Pays off a promise</span>It is the honest answer to the black box we flagged back in class 1.5 (APIs and the web).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The problem -->
+    <section>
+      <h2><span class="eyebrow">The problem</span>Meaning depends on the right neighbors</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">The same word can mean very different things depending on the company it keeps. To understand any word, the model must look at the few neighbors that pin it down, however far away they sit.</p>
+        <div class="grid-table" style="grid-template-columns: 0.8fr 2.1fr 1.3fr">
+          <div class="gt-head">Word</div><div class="gt-head">Sentence</div><div class="gt-head">Fixed by</div>
+          <div class="gt-accent">bank</div><div>the boat drifted to the <strong>bank</strong> of the river</div><div>river &#8594; riverbank</div>
+          <div class="gt-accent">bank</div><div>the <strong>bank</strong> approved the loan</div><div>loan &#8594; financial</div>
+          <div class="gt-accent">bat</div><div>the <strong>bat</strong> flew out of the cave at dusk</div><div>flew, cave &#8594; animal</div>
+          <div class="gt-accent">it</div><div>the trophy did not fit in the case; <strong>it</strong> was too big</div><div>trophy &#8594; what "it" means</div>
+        </div>
+        <div class="analogy"><span class="label">Think of it as</span>Reading a sentence and, for each word, deciding which other words to glance back at. Attention is exactly that glance, made mathematical.</div>
+      </div>
+    </section>
+
+    <!-- 4. QKV -->
+    <section>
+      <h2><span class="eyebrow">Query, key, value</span>A soft lookup in a table</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <ul class="tight">
+              <li><strong>Query</strong> (Q): what am I looking for?</li>
+              <li><strong>Key</strong> (K): what does each entry advertise?</li>
+              <li><strong>Value</strong> (V): the content each entry carries.</li>
+            </ul>
+            <p class="stmt" style="margin-top:8px">Picture a table, like a Python dict or a database. The query is compared to every key. Instead of one exact hit, you take a <strong>weighted blend</strong> of the values, more from the keys that match best.</p>
+            <div class="analogy" style="margin-top:8px"><span class="label">Another view</span>A meeting: you weight each person's notes (values) by how well their expertise (key) answers your question (query).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 260" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aq" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e2673a"/></marker></defs>
+              <text x="30" y="126" font-size="15" fill="#172033">query =</text>
+              <text x="30" y="146" font-size="16" font-weight="700" fill="#7c3aed">"love"</text>
+              <text x="205" y="24" text-anchor="middle" font-size="12" fill="#3f4a63">Keys</text><text x="290" y="24" text-anchor="middle" font-size="12" fill="#3f4a63">Values</text>
+              <g font-size="10.5" text-anchor="middle">
+                <rect x="165" y="34" width="80" height="34" fill="#c4b5fd" stroke="#7c3aed"/><text x="205" y="55" fill="#172033" font-weight="700">ROMANTIC</text>
+                <rect x="245" y="34" width="90" height="34" fill="#5eead4" stroke="#0d9488"/><text x="290" y="55" fill="#172033">TITANIC</text>
+                <rect x="165" y="72" width="80" height="34" fill="#ddd6fe" stroke="#7c3aed"/><text x="205" y="93" fill="#172033" font-weight="700">ACTION</text>
+                <rect x="245" y="72" width="90" height="34" fill="#ccfbf1" stroke="#0d9488"/><text x="290" y="93" fill="#172033">DARK KNIGHT</text>
+                <rect x="165" y="110" width="80" height="34" fill="#ddd6fe" stroke="#7c3aed"/><text x="205" y="131" fill="#172033" font-weight="700">SCIFI</text>
+                <rect x="245" y="110" width="90" height="34" fill="#ecfdf5" stroke="#0d9488"/><text x="290" y="131" fill="#172033">INCEPTION</text>
+                <rect x="165" y="148" width="80" height="34" fill="#ddd6fe" stroke="#7c3aed"/><text x="205" y="169" fill="#172033" font-weight="700">HORROR</text>
+                <rect x="245" y="148" width="90" height="34" fill="#ecfdf5" stroke="#0d9488"/><text x="290" y="169" fill="#172033">THE SHINING</text>
+                <rect x="165" y="186" width="80" height="34" fill="#c4b5fd" stroke="#7c3aed"/><text x="205" y="207" fill="#172033" font-weight="700">COMEDY</text>
+                <rect x="245" y="186" width="90" height="34" fill="#5eead4" stroke="#0d9488"/><text x="290" y="207" fill="#172033">INTOUCHABLES</text>
+              </g>
+              <g stroke="#e2673a" fill="none" marker-end="url(#aq)">
+                <line x1="92" y1="138" x2="162" y2="51" stroke-width="2.4"/>
+                <line x1="92" y1="138" x2="162" y2="89" stroke-width="1"/>
+                <line x1="92" y1="138" x2="162" y2="127" stroke-width="1"/>
+                <line x1="92" y1="138" x2="162" y2="165" stroke-width="1"/>
+                <line x1="92" y1="138" x2="162" y2="203" stroke-width="2.4"/>
+              </g>
+              <text x="250" y="240" text-anchor="middle" font-size="10.5" fill="#6b7793">a dict or a database table (soft match)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4b. Where Q, K, V come from (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Query, key, value</span>Where Q, K, and V come from</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">The three vectors are not handed to the model. Each token's embedding \( x \) (from class 3.1, Text as data) is multiplied by three <strong>learned</strong> weight matrices.</p>
+            <p class="stmt" style="margin-top:6px">$$ q = x W_Q, \quad k = x W_K, \quad v = x W_V $$</p>
+            <ul class="tight">
+              <li>\( W_Q, W_K, W_V \) are learned during training, like any weights from class 2.4 (PyTorch fundamentals).</li>
+              <li>The same embedding, seen three ways: what to look for, what to advertise, what to share.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aqkv" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <rect x="16" y="94" width="66" height="42" rx="8" fill="#eef4ff" stroke="#93a7d8" stroke-width="1.5"/><text x="49" y="120" text-anchor="middle" font-size="16" fill="#172033">x</text>
+              <g stroke="#6b7793" stroke-width="1.5" marker-end="url(#aqkv)"><line x1="82" y1="108" x2="128" y2="55"/><line x1="82" y1="115" x2="128" y2="115"/><line x1="82" y1="122" x2="128" y2="175"/></g>
+              <rect x="130" y="37" width="66" height="38" rx="8" fill="#e8f0ff" stroke="#3f6fd0"/><text x="163" y="61" text-anchor="middle" font-size="14" fill="#172033">W_Q</text>
+              <rect x="130" y="96" width="66" height="38" rx="8" fill="#fff2cf" stroke="#d99a00"/><text x="163" y="120" text-anchor="middle" font-size="14" fill="#172033">W_K</text>
+              <rect x="130" y="155" width="66" height="38" rx="8" fill="#fbe0c9" stroke="#c2621f"/><text x="163" y="179" text-anchor="middle" font-size="14" fill="#172033">W_V</text>
+              <g stroke="#6b7793" stroke-width="1.5" marker-end="url(#aqkv)"><line x1="196" y1="56" x2="250" y2="56"/><line x1="196" y1="115" x2="250" y2="115"/><line x1="196" y1="174" x2="250" y2="174"/></g>
+              <text x="278" y="61" text-anchor="middle" font-size="16" fill="#3f6fd0" font-weight="700">q</text>
+              <text x="278" y="120" text-anchor="middle" font-size="16" fill="#b8860b" font-weight="700">k</text>
+              <text x="278" y="179" text-anchor="middle" font-size="16" fill="#c2621f" font-weight="700">v</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Not a lookup -->
+    <section>
+      <h2><span class="eyebrow">Query, key, value</span>Not a dictionary lookup</h2>
+      <div class="body">
+        <p class="stmt">A dictionary returns one exact match. Attention is <strong>soft</strong>: a token blends a little of every other token, weighted by how well each key matches the query.</p>
+        <div class="callout"><span class="label">Soft, not exact</span>Think of a fuzzy database lookup where the match is by similarity, and you keep a weighted mixture of every row rather than a single hit.</div>
+      </div>
+    </section>
+
+    <!-- 6. The formula -->
+    <section>
+      <h2><span class="eyebrow">The formula</span>Attention, in one line</h2>
+      <div class="body">
+        <p class="stmt" style="text-align:center; font-size:1.15em; margin-top:8px">$$ \text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{Q K^{\top}}{\sqrt{d_k}}\right) V $$</p>
+        <div class="callout"><span class="label">Read it aloud</span>Score every token against every token, turn the scores into percentages, then blend everyone's information by those percentages. The next four slides take it one piece at a time.</div>
+      </div>
+    </section>
+
+    <!-- 7. Step 1: scores -->
+    <section>
+      <h2><span class="eyebrow">Decoded &middot; 1 of 4</span>Score: Q times K transpose</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <ul>
+              <li>\( Q, K, V \) are the stacks of query, key, and value vectors for all tokens.</li>
+              <li>\( Q K^{\top} \) takes the dot product of each query with every key.</li>
+              <li>A dot product is a <strong>similarity</strong> score, so this gives, for each token, a relevance score against every other token.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 260 200" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+              <text x="145" y="24" text-anchor="middle" font-size="12" fill="#3f4a63">score matrix: each query vs each key</text>
+              <g>
+                <rect x="70" y="40" width="50" height="40" fill="#2563eb" fill-opacity="0.85"/><rect x="120" y="40" width="50" height="40" fill="#2563eb" fill-opacity="0.2"/><rect x="170" y="40" width="50" height="40" fill="#2563eb" fill-opacity="0.35"/>
+                <rect x="70" y="80" width="50" height="40" fill="#2563eb" fill-opacity="0.25"/><rect x="120" y="80" width="50" height="40" fill="#2563eb" fill-opacity="0.9"/><rect x="170" y="80" width="50" height="40" fill="#2563eb" fill-opacity="0.3"/>
+                <rect x="70" y="120" width="50" height="40" fill="#2563eb" fill-opacity="0.3"/><rect x="120" y="120" width="50" height="40" fill="#2563eb" fill-opacity="0.25"/><rect x="170" y="120" width="50" height="40" fill="#2563eb" fill-opacity="0.85"/>
+              </g>
+              <text x="55" y="65" text-anchor="middle" font-size="12" fill="#3f4a63">q1</text><text x="55" y="105" text-anchor="middle" font-size="12" fill="#3f4a63">q2</text><text x="55" y="145" text-anchor="middle" font-size="12" fill="#3f4a63">q3</text>
+              <text x="95" y="178" text-anchor="middle" font-size="12" fill="#3f4a63">k1</text><text x="145" y="178" text-anchor="middle" font-size="12" fill="#3f4a63">k2</text><text x="195" y="178" text-anchor="middle" font-size="12" fill="#3f4a63">k3</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Step 2: scale -->
+    <section>
+      <h2><span class="eyebrow">Decoded &middot; 2 of 4</span>Scale: divide by \( \sqrt{d_k} \)</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">\( d_k \) is the length of a key vector. Dividing by \( \sqrt{d_k} \) keeps the scores from growing large when the vectors are long.</p>
+            <div class="callout" style="margin-top:10px"><span class="label">Just a stabilizer</span>Long vectors produce big dot products. Without the divide, softmax turns into a near one-hot spike that starves every other token of gradient. The \( \sqrt{d_k} \) is a normalizer, nothing more.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="80" y="20" text-anchor="middle" font-size="12.5" fill="#a32d2d">unscaled: spiky</text>
+              <line x1="20" y1="100" x2="150" y2="100" stroke="#6b7793"/>
+              <rect x="34" y="30" width="22" height="70" fill="#c2621f"/><rect x="62" y="94" width="22" height="6" fill="#c2621f"/><rect x="90" y="96" width="22" height="4" fill="#c2621f"/><rect x="118" y="97" width="22" height="3" fill="#c2621f"/>
+              <text x="240" y="20" text-anchor="middle" font-size="12.5" fill="#15803d">scaled: usable</text>
+              <line x1="180" y1="100" x2="310" y2="100" stroke="#6b7793"/>
+              <rect x="194" y="52" width="22" height="48" fill="#2563eb"/><rect x="222" y="70" width="22" height="30" fill="#2563eb"/><rect x="250" y="80" width="22" height="20" fill="#2563eb"/><rect x="278" y="86" width="22" height="14" fill="#2563eb"/>
+              <text x="160" y="150" text-anchor="middle" font-size="12.5" fill="#3f4a63">same scores, before and after dividing by root d_k</text>
+              <text x="160" y="176" text-anchor="middle" font-size="12" fill="#6b7793">a spike gives almost no gradient to the rest</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Step 3: softmax -->
+    <section>
+      <h2><span class="eyebrow">Decoded &middot; 3 of 4</span>Softmax: scores into percentages</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">$$ \text{softmax}(s)_j = \frac{e^{s_j}}{\sum_k e^{s_k}} $$</p>
+            <ul class="tight">
+              <li>Turns raw scores into <strong>attention weights</strong>: all positive, adding up to 1.</li>
+              <li>"What fraction of my attention goes to each token."</li>
+              <li>The same softmax from class 2.3 (Neural networks); bigger scores get exponentially more weight.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+              <line x1="40" y1="170" x2="290" y2="170" stroke="#6b7793"/>
+              <text x="22" y="100" font-size="12" fill="#3f4a63" transform="rotate(-90 22 100)">weight</text>
+              <rect x="70" y="60" width="44" height="110" fill="#2563eb"/><text x="92" y="52" text-anchor="middle" font-size="12" fill="#172033">0.70</text>
+              <rect x="140" y="135" width="44" height="35" fill="#2563eb"/><text x="162" y="127" text-anchor="middle" font-size="12" fill="#172033">0.20</text>
+              <rect x="210" y="153" width="44" height="17" fill="#2563eb"/><text x="232" y="145" text-anchor="middle" font-size="12" fill="#172033">0.10</text>
+              <text x="92" y="187" text-anchor="middle" font-size="11" fill="#3f4a63">river</text><text x="162" y="187" text-anchor="middle" font-size="11" fill="#3f4a63">bank</text><text x="232" y="187" text-anchor="middle" font-size="11" fill="#3f4a63">the</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Step 4: blend (merged with the bank-attends-to-river picture) -->
+    <section>
+      <h2><span class="eyebrow">Decoded &middot; 4 of 4</span>Blend: weights times values</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Multiply the attention weights by the value vectors \( V \) and add them up. Each token's new representation is a weighted blend of every token's value.</p>
+            <div class="callout" style="margin-top:10px"><span class="label">The context vector</span>The output for "bank" is \( 0.70\,v_{\text{river}} + 0.15\,v_{\text{bank}} + \dots \): mostly river, a little of the rest. The thickest link, and the largest weight, goes to "river", so the word now carries its context.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 480 300" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:420px" font-family="Segoe UI, Arial, sans-serif">
+              <g>
+                <rect x="20" y="40" width="70" height="34" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="55" y="62" text-anchor="middle" font-size="13" fill="#172033">the</text>
+                <rect x="110" y="40" width="70" height="34" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="145" y="62" text-anchor="middle" font-size="13" fill="#172033">bank</text>
+                <rect x="200" y="40" width="70" height="34" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="235" y="62" text-anchor="middle" font-size="13" fill="#172033">by</text>
+                <rect x="290" y="40" width="70" height="34" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="325" y="62" text-anchor="middle" font-size="13" fill="#172033">the</text>
+                <rect x="380" y="40" width="80" height="34" rx="6" fill="#c7e9b0" stroke="#4f9a2f"/><text x="420" y="62" text-anchor="middle" font-size="13" fill="#172033">river</text>
+              </g>
+              <g stroke="#2563eb" fill="none">
+                <line x1="235" y1="222" x2="55" y2="78" stroke-width="1.2" opacity="0.4"/>
+                <line x1="235" y1="222" x2="145" y2="78" stroke-width="3" opacity="0.7"/>
+                <line x1="235" y1="222" x2="235" y2="78" stroke-width="1.2" opacity="0.4"/>
+                <line x1="235" y1="222" x2="325" y2="78" stroke-width="1.2" opacity="0.4"/>
+                <line x1="235" y1="222" x2="420" y2="78" stroke-width="8" opacity="0.85"/>
+              </g>
+              <text x="55" y="96" text-anchor="middle" font-size="12" fill="#3f4a63">0.05</text><text x="150" y="96" text-anchor="middle" font-size="12" fill="#3f4a63">0.15</text><text x="235" y="96" text-anchor="middle" font-size="12" fill="#3f4a63">0.05</text><text x="325" y="96" text-anchor="middle" font-size="12" fill="#3f4a63">0.05</text><text x="420" y="96" text-anchor="middle" font-size="12" fill="#15803d" font-weight="700">0.70</text>
+              <rect x="175" y="224" width="120" height="40" rx="8" fill="#fde9b8" stroke="#d99a00" stroke-width="1.5"><animate attributeName="stroke-width" values="1.5;3.5;1.5" dur="1.6s" repeatCount="indefinite"/></rect>
+              <text x="235" y="249" text-anchor="middle" font-size="14" fill="#172033">bank (query)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Worked numeric, end to end -->
+    <section>
+      <h2><span class="eyebrow">By the numbers</span>From dot products to a blended vector</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="col-label">Score: query dotted with each key</div>
+            <ul class="tight">
+              <li>Query \( q = (2, 0) \).</li>
+              <li>\( q\cdot k_{\text{river}} = (2,0)\cdot(2,0) = 4 \).</li>
+              <li>\( q\cdot k_{\text{bank}} = (2,0)\cdot(0.5,3) = 1 \).</li>
+              <li>\( q\cdot k_{\text{the}} = (2,0)\cdot(0,1) = 0 \).</li>
+              <li>Scores \( s = (4,\ 1,\ 0) \). (Scaling left out to keep the arithmetic clean.)</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="col-label">Softmax, then blend the values</div>
+            <ul class="tight">
+              <li>Exponentiate: \( e^4, e^1, e^0 = 54.6,\ 2.72,\ 1.0 \); sum \( 58.3 \).</li>
+              <li>Weights: \( 0.936,\ 0.047,\ 0.017 \), adding to 1.</li>
+              <li>Context \( = 0.936\,v_{\text{river}} + 0.047\,v_{\text{bank}} + 0.017\,v_{\text{the}} \).</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">The result</span>Almost all of "river"'s value, a trace of the rest. That blend is the token's context-aware output.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Self-attention -->
+    <section>
+      <h2><span class="eyebrow">Self-attention</span>Every token, in parallel</h2>
+      <div class="body">
+        <p class="stmt">When \( Q, K, V \) all come from the same sentence, tokens attend to each other within it. That is self-attention, the layer LLMs are built from.</p>
+        <div class="callout"><span class="label">Why transformers train fast</span>Every token's attention is computed at the same time, as matrix multiplications, not one step after another. Unlike the RNN from class 3.1 (Text as data), there is no sequential bottleneck.</div>
+      </div>
+    </section>
+
+    <!-- 13b. Masked (causal) attention (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Self-attention</span>Masking: no peeking ahead</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A model that generates text left to right must not let a token see words that come after it. Causal masking blocks those links before the softmax, so each token attends only to itself and the tokens before it.</p>
+            <div class="callout"><span class="label">Why it matters</span>This causal mask is what makes a decoder autoregressive: word \( t \) is predicted from words 1 to \( t-1 \) only, which keeps next-token prediction honest in class 3.5 (From models to LLMs). Masking is a decoder feature. Encoder-only models are bidirectional by design, with no causal mask, so each token sees the whole sentence.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="150" y="20" text-anchor="middle" font-size="12.5" fill="#3f4a63">rows attend to columns</text>
+              <g font-size="12" fill="#3f4a63" text-anchor="middle">
+                <text x="70" y="52">the</text><text x="120" y="52">cat</text><text x="170" y="52">sat</text><text x="220" y="52">down</text>
+                <text x="34" y="88">the</text><text x="34" y="128">cat</text><text x="34" y="168">sat</text><text x="34" y="208">down</text>
+              </g>
+              <g>
+                <rect x="48" y="66" width="44" height="34" fill="#2563eb" fill-opacity="0.8"/><rect x="98" y="66" width="44" height="34" fill="#e9edf5"/><rect x="148" y="66" width="44" height="34" fill="#e9edf5"/><rect x="198" y="66" width="44" height="34" fill="#e9edf5"/>
+                <rect x="48" y="106" width="44" height="34" fill="#2563eb" fill-opacity="0.6"/><rect x="98" y="106" width="44" height="34" fill="#2563eb" fill-opacity="0.8"/><rect x="148" y="106" width="44" height="34" fill="#e9edf5"/><rect x="198" y="106" width="44" height="34" fill="#e9edf5"/>
+                <rect x="48" y="146" width="44" height="34" fill="#2563eb" fill-opacity="0.4"/><rect x="98" y="146" width="44" height="34" fill="#2563eb" fill-opacity="0.5"/><rect x="148" y="146" width="44" height="34" fill="#2563eb" fill-opacity="0.8"/><rect x="198" y="146" width="44" height="34" fill="#e9edf5"/>
+                <rect x="48" y="186" width="44" height="34" fill="#2563eb" fill-opacity="0.35"/><rect x="98" y="186" width="44" height="34" fill="#2563eb" fill-opacity="0.4"/><rect x="148" y="186" width="44" height="34" fill="#2563eb" fill-opacity="0.5"/><rect x="198" y="186" width="44" height="34" fill="#2563eb" fill-opacity="0.8"/>
+              </g>
+              <g stroke="#a32d2d" stroke-width="1.6" opacity="0.7">
+                <line x1="98" y1="66" x2="242" y2="66"/><line x1="148" y1="106" x2="242" y2="106"/><line x1="198" y1="146" x2="242" y2="146"/>
+              </g>
+              <text x="150" y="246" text-anchor="middle" font-size="12" fill="#a32d2d">upper triangle blocked: no future tokens</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Build -->
+    <section>
+      <h2><span class="eyebrow">Build</span>Attention, from scratch, as a heatmap</h2>
+      <div class="body">
+        <p class="lead">In the notebook you implement scaled dot-product attention in NumPy on a short sentence, then plot the attention weights as a heatmap. You will see, concretely, which tokens attend to which, for example a pronoun leaning on the noun it refers to.</p>
+      </div>
+    </section>
+
+    <!-- 15. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap up</span>Your turn, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="col-label">Micro-assignment</div>
+            <ul>
+              <li>Compute a similarity score, a softmax, and a blended context vector by hand.</li>
+              <li>Read an attention row and name where it points.</li>
+              <li>Details in the micro-assignment folder.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="col-label">Next: class 3.3, The Transformer</div>
+            <ul>
+              <li>Multi-head attention.</li>
+              <li>Positional encoding and the feed-forward layer.</li>
+              <li>The full block, assembled.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
