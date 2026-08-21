@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 3.3 - The Transformer</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 3 &middot; Class 3.3</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 3 &middot; NLP to Transformers &middot; Class 3.3</span>
+      <h1>The Transformer</h1>
+      <p class="lead">Assemble the full architecture from attention plus a few supporting parts, so a transformer stops being a mystery box.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Multi-head attention<span class="step-note">Run attention several ways at once.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Positional encoding<span class="step-note">Attention is order-blind; sinusoidal and RoPE put order back.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Residuals, norm, feed-forward<span class="step-note">The plumbing that makes depth trainable, then per-token thinking.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The block: encoder and decoder<span class="step-note">Assemble it, then stack it N times.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">Architectures and the head<span class="step-note">BERT, GPT, T5, and how a next token comes out.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">One unit, stacked</span>The block you build here is the unit every LLM in the course is made of, repeated many times.</div>
+            <div class="pill"><span class="pill-tag">Built on 3.2</span>Attention from class 3.2 (Attention) is the engine; today adds the chassis around it.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Multi-head -->
+    <section>
+      <h2><span class="eyebrow">Multi-head</span>Run attention several ways at once</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">One attention layer can only track one kind of relationship at a time. So we run several copies in parallel, called <strong>heads</strong>, each with its own learned Q, K, V projections. Each head is free to specialize.</p>
+            <ul class="tight">
+              <li>One head might link a verb to its subject.</li>
+              <li>Another might link a pronoun to the noun it refers to.</li>
+              <li>Another might just track nearby words.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">Then combine</span>Stack the heads' outputs side by side and pass them through one more linear layer that mixes them into a single result.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="am" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <rect x="120" y="16" width="100" height="34" rx="8" fill="#eef4ff" stroke="#93a7d8"/><text x="170" y="38" text-anchor="middle" font-size="13" fill="#172033">input</text>
+              <g stroke="#6b7793" stroke-width="1.4" marker-end="url(#am)"><line x1="150" y1="50" x2="60" y2="86"/><line x1="170" y1="50" x2="170" y2="86"/><line x1="190" y1="50" x2="280" y2="86"/></g>
+              <g font-size="10" text-anchor="middle">
+                <rect x="18" y="88" width="84" height="52" rx="8" fill="#fde9b8" stroke="#d99a00"/><text x="60" y="108" fill="#172033" font-weight="700">head 1</text><text x="60" y="126" fill="#3f4a63">subject-verb</text>
+                <rect x="128" y="88" width="84" height="52" rx="8" fill="#fde9b8" stroke="#d99a00"/><text x="170" y="108" fill="#172033" font-weight="700">head 2</text><text x="170" y="126" fill="#3f4a63">who "it" is</text>
+                <rect x="238" y="88" width="84" height="52" rx="8" fill="#fde9b8" stroke="#d99a00"/><text x="280" y="108" fill="#172033" font-weight="700">head 3</text><text x="280" y="126" fill="#3f4a63">nearby words</text>
+              </g>
+              <g stroke="#6b7793" stroke-width="1.4" marker-end="url(#am)"><line x1="60" y1="140" x2="150" y2="178" /><line x1="170" y1="140" x2="170" y2="178"/><line x1="280" y1="140" x2="190" y2="178"/></g>
+              <rect x="110" y="180" width="120" height="36" rx="8" fill="#c7e9b0" stroke="#4f9a2f"/><text x="170" y="203" text-anchor="middle" font-size="12" fill="#172033">combine (linear)</text>
+              <text x="170" y="238" text-anchor="middle" font-size="12" fill="#3f4a63">one richer output vector</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Multi-head by the dimensions -->
+    <section>
+      <h2><span class="eyebrow">Multi-head</span>Multi-head, by the dimensions</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">Heads do not add width. The model vector is split across heads, each head attends in its own smaller slice, then the pieces are concatenated and passed through one output projection \( W^O \) back to full width.</p>
+        <div class="cols cols-2" style="align-items:center">
+          <div class="grid-table" style="grid-template-columns: 2fr 1fr">
+            <div class="gt-head">Quantity</div><div class="gt-head">Example</div>
+            <div>Model dimension \( d_{\text{model}} \)</div><div class="gt-accent">512</div>
+            <div>Number of heads \( h \)</div><div class="gt-accent">8</div>
+            <div>Per-head size \( d_k = d_{\text{model}} / h \)</div><div class="gt-accent">64</div>
+            <div>After concatenating the heads</div><div class="gt-accent">8 &#215; 64 = 512</div>
+          </div>
+          <div>
+            <p class="stmt" style="margin:0; font-size:0.98em">$$ \text{head}_i = \text{Attention}(QW_i^Q, KW_i^K, VW_i^V) $$</p>
+            <p class="stmt" style="margin:6px 0 0; font-size:0.98em">$$ \text{MultiHead} = \text{Concat}(\text{head}_1,\dots,\text{head}_h)\,W^O $$</p>
+          </div>
+        </div>
+        <div class="callout"><span class="label">Why split</span>Each head learns a different relationship inside its 64-dim slice. Concatenating recovers the full 512, and the output projection \( W^O \) mixes the heads back together. Head count grows with model size: 8 in the original transformer, 12 to 16 in BERT, and dozens (up to 96) in the largest LLMs.</div>
+      </div>
+    </section>
+
+    <!-- 5. Order-blind -->
+    <section>
+      <h2><span class="eyebrow">Position</span>Attention is order-blind</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Attention treats the sentence as a <strong>set</strong>. It scores every pair of tokens, but nothing in that score depends on where a token sits. Shuffle the words and the attention is identical.</p>
+            <div class="callout" style="margin-top:10px"><span class="label">The gap</span>So on its own, attention cannot tell "dog bites man" from "man bites dog". Word order carries meaning, and we have to add it back in.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 260 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aob" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <g font-size="12.5" text-anchor="middle" fill="#172033">
+                <rect x="30" y="14" width="52" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="56" y="34">dog</text>
+                <rect x="90" y="14" width="56" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="118" y="34">bites</text>
+                <rect x="154" y="14" width="52" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="180" y="34">man</text>
+                <rect x="30" y="52" width="52" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="56" y="72">man</text>
+                <rect x="90" y="52" width="56" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="118" y="72">bites</text>
+                <rect x="154" y="52" width="52" height="30" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="180" y="72">dog</text>
+              </g>
+              <text x="118" y="100" text-anchor="middle" font-size="11.5" fill="#6b7793">same words, different order</text>
+              <line x1="118" y1="106" x2="118" y2="130" stroke="#6b7793" stroke-width="1.6" marker-end="url(#aob)"/>
+              <rect x="44" y="132" width="148" height="40" rx="8" fill="#e6e9f4" stroke="#6b7793"/><text x="118" y="157" text-anchor="middle" font-size="13" fill="#172033">{ bites, dog, man }</text>
+              <line x1="118" y1="172" x2="118" y2="196" stroke="#6b7793" stroke-width="1.6" marker-end="url(#aob)"/>
+              <rect x="38" y="198" width="160" height="38" rx="8" fill="#fbe4e4" stroke="#a32d2d"/><text x="118" y="222" text-anchor="middle" font-size="13" fill="#a32d2d" font-weight="700">identical attention scores</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Sinusoidal PE -->
+    <section>
+      <h2><span class="eyebrow">Position</span>Sinusoidal positional encoding</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">The original transformer adds a fixed <strong>position vector</strong> to each token embedding. Each dimension of that vector is a wave of a different frequency.</p>
+        <p class="stmt" style="text-align:center; margin:2px 0">$$ PE_{(pos,\,2i)} = \sin\!\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right), \qquad PE_{(pos,\,2i+1)} = \cos\!\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right) $$</p>
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <ul class="tight">
+              <li>\( pos \): the token's position (0, 1, 2, ...).</li>
+              <li>\( i \): the dimension index; even dims use \( \sin \), odd dims use \( \cos \).</li>
+              <li>Low dims are fast waves, high dims are slow waves, so every position gets a unique pattern.</li>
+              <li>Added to the token embedding: <code>input = token_embedding + PE</code>, so the same word in two places differs.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:300px" font-family="Segoe UI, Arial, sans-serif">
+              <line x1="15" y1="162" x2="315" y2="162" stroke="#cbd3e6"/>
+              <path d="M15,42 C27,22 40,22 52,42 C64,62 77,62 90,42 C102,22 115,22 128,42 C140,62 153,62 166,42 C178,22 191,22 204,42 C216,62 229,62 242,42 C254,22 267,22 280,42" fill="none" stroke="#2563eb" stroke-width="2"/>
+              <text x="290" y="46" font-size="11" fill="#2563eb">dim 0</text>
+              <path d="M15,92 C40,68 65,68 90,92 C115,116 140,116 165,92 C190,68 215,68 240,92 C258,108 272,108 285,99" fill="none" stroke="#15803d" stroke-width="2"/>
+              <text x="290" y="96" font-size="11" fill="#15803d">dim 2</text>
+              <path d="M15,138 C80,114 200,114 285,138" fill="none" stroke="#b45309" stroke-width="2"/>
+              <text x="290" y="142" font-size="11" fill="#b45309">dim 4</text>
+              <text x="165" y="188" text-anchor="middle" font-size="12" fill="#3f4a63">value across positions (fast to slow)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6b. Concrete PE table (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Position</span>The position vectors, concretely</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">For \( d_{\text{model}} = 6 \) and five positions, the formula produces these vectors, one row per position:</p>
+        <div class="grid-table" style="grid-template-columns: 0.8fr 1fr 1fr 1fr 1fr 1fr 1fr">
+          <div class="gt-head">pos</div><div class="gt-head">d0</div><div class="gt-head">d1</div><div class="gt-head">d2</div><div class="gt-head">d3</div><div class="gt-head">d4</div><div class="gt-head">d5</div>
+          <div class="gt-accent">0</div><div>0.00</div><div>1.00</div><div>0.00</div><div>1.00</div><div>0.00</div><div>1.00</div>
+          <div class="gt-accent">1</div><div>0.84</div><div>0.54</div><div>0.05</div><div>1.00</div><div>0.00</div><div>1.00</div>
+          <div class="gt-accent">2</div><div>0.91</div><div>-0.42</div><div>0.09</div><div>1.00</div><div>0.00</div><div>1.00</div>
+          <div class="gt-accent">3</div><div>0.14</div><div>-0.99</div><div>0.14</div><div>0.99</div><div>0.01</div><div>1.00</div>
+          <div class="gt-accent">4</div><div>-0.76</div><div>-0.65</div><div>0.18</div><div>0.98</div><div>0.01</div><div>1.00</div>
+        </div>
+        <div class="callout"><span class="label">Read the columns</span>Position 0 is \( \sin=0,\ \cos=1 \) everywhere. As position grows, the fast dims (d0, d1) swing quickly while the slow dims (d4, d5) barely move. Every row is a unique fingerprint of the position, and that whole row is added to the token's embedding.</div>
+      </div>
+    </section>
+
+    <!-- 7a. RoPE step 1: rotate by position -->
+    <section>
+      <h2><span class="eyebrow">Position (RoPE 1 of 3)</span>Rotate the vector by its position</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Sinusoidal encoding <strong>adds</strong> a position vector. RoPE instead <strong>rotates</strong> each token's query and key by an angle set by its position: at position \( m \), spin the vector by \( m\theta \).</p>
+            <div class="card" style="margin-top:8px">
+              <div class="col-label">Spin a query \( q = (1, 0) \), with \( \theta = 30^\circ \) per position</div>
+              <ul class="tight">
+                <li>pos 0: turn \( 0^\circ \rightarrow (1.00,\ 0.00) \)</li>
+                <li>pos 1: turn \( 30^\circ \rightarrow (0.87,\ 0.50) \)</li>
+                <li>pos 2: turn \( 60^\circ \rightarrow (0.50,\ 0.87) \)</li>
+                <li>pos 3: turn \( 90^\circ \rightarrow (0.00,\ 1.00) \)</li>
+              </ul>
+            </div>
+            <p class="stmt" style="margin:6px 0 0; font-size:0.9em">Rotating \( (x,y) \) by \( \alpha \): \( (x\cos\alpha - y\sin\alpha,\ x\sin\alpha + y\cos\alpha) \).</p>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 260 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="arp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <circle cx="120" cy="130" r="88" fill="none" stroke="#e2e7f5"/>
+              <line x1="30" y1="130" x2="212" y2="130" stroke="#eef1f8"/><line x1="120" y1="40" x2="120" y2="220" stroke="#eef1f8"/>
+              <line x1="120" y1="130" x2="204" y2="130" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arp)"/><text x="196" y="147" font-size="11" fill="#2563eb" font-weight="700">pos 0</text>
+              <line x1="120" y1="130" x2="196" y2="86" stroke="#15803d" stroke-width="2.5" marker-end="url(#arp)"/><text x="200" y="80" font-size="11" fill="#15803d" font-weight="700">pos 1</text>
+              <line x1="120" y1="130" x2="164" y2="54" stroke="#b45309" stroke-width="2.5" marker-end="url(#arp)"/><text x="150" y="44" font-size="11" fill="#b45309" font-weight="700">pos 2</text>
+              <line x1="120" y1="130" x2="120" y2="46" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#arp)"/><text x="86" y="42" font-size="11" fill="#7c3aed" font-weight="700">pos 3</text>
+              <circle cx="120" cy="130" r="3.5" fill="#172033"/>
+              <text x="120" y="232" text-anchor="middle" font-size="11" fill="#3f4a63">further along the sentence, further around</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7b. RoPE step 2: only distance matters (the numbers) -->
+    <section>
+      <h2><span class="eyebrow">Position (RoPE 2 of 3)</span>Only the distance matters</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">Here is the whole point. Score a query against a key with the dot product of their rotated vectors. If both start as \( (1,0) \), that score works out to \( \cos(\text{distance} \times \theta) \). Watch the last two rows.</p>
+        <div class="grid-table" style="grid-template-columns: 1fr 1fr 1fr 1fr 1.6fr">
+          <div class="gt-head">query pos</div><div class="gt-head">key pos</div><div class="gt-head">distance</div><div class="gt-head">turned by</div><div class="gt-head">score</div>
+          <div>2</div><div>2</div><div class="gt-accent">0</div><div>60&#176;, 60&#176;</div><div>cos 0&#176; = 1.00</div>
+          <div>5</div><div>4</div><div class="gt-accent">1</div><div>150&#176;, 120&#176;</div><div>cos 30&#176; = 0.87</div>
+          <div>5</div><div>2</div><div class="gt-accent">3</div><div>150&#176;, 60&#176;</div><div>cos 90&#176; = 0.00</div>
+          <div>8</div><div>5</div><div class="gt-accent">3</div><div>240&#176;, 150&#176;</div><div>cos 90&#176; = 0.00</div>
+        </div>
+        <div class="callout"><span class="label">The click</span>Rows 3 and 4 sit in completely different places, positions 5 and 2 versus 8 and 5, yet both are 3 apart, so both score exactly 0.00. The absolute positions cancel out; only the gap between the two tokens is left.</div>
+      </div>
+    </section>
+
+    <!-- 7c. RoPE step 3: why it wins -->
+    <section>
+      <h2><span class="eyebrow">Position (RoPE 3 of 3)</span>Why RoPE wins</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <ul>
+              <li><strong>Relative by design:</strong> the score depends only on how far apart two tokens are, not where they sit, so the model gets relative position for free.</li>
+              <li><strong>Long context:</strong> tokens at positions 5000 and 4997 are still "3 apart", so a model can run on sequences longer than it trained on.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">The full version</span>A real vector is high-dimensional. RoPE splits it into pairs of dimensions and rotates each pair at its own rate, fast to slow, like the sinusoidal frequencies. Same idea, many dials at once.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 150" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:210px" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="14" text-anchor="middle" font-size="11" fill="#3f4a63">many pairs, each at its own speed</text>
+              <g stroke="#e2e7f5"><circle cx="55" cy="72" r="40" fill="none"/><circle cx="160" cy="72" r="40" fill="none"/><circle cx="265" cy="72" r="40" fill="none"/></g>
+              <g stroke="#cbd3e6" stroke-width="1.4"><line x1="55" y1="72" x2="91" y2="72"/><line x1="160" y1="72" x2="196" y2="72"/><line x1="265" y1="72" x2="301" y2="72"/></g>
+              <g stroke="#2563eb" stroke-width="2.6"><line x1="55" y1="72" x2="32" y2="44"/><line x1="160" y1="72" x2="188" y2="49"/><line x1="265" y1="72" x2="300" y2="66"/></g>
+              <g font-size="10" text-anchor="middle" fill="#6b7793"><text x="55" y="132">pair 1 (fast)</text><text x="160" y="132">pair 2</text><text x="265" y="132">pair 3 (slow)</text></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Why depth is hard: vanishing gradient -->
+    <section>
+      <h2><span class="eyebrow">Plumbing</span>Why deep stacks are hard to train</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Backprop (class 2.3, Neural networks) sends the gradient back by the chain rule: at each layer it is <strong>multiplied</strong> by that layer's local slope. Those slopes are usually below 1, an activation's derivative times the weights, so the product shrinks fast.</p>
+            <div class="card" style="margin-top:8px">
+              <div class="col-label">If each layer's slope is about 0.6</div>
+              <ul class="tight">
+                <li>after 3 layers: \( 0.6^3 \approx 0.22 \)</li>
+                <li>after 6 layers: \( 0.6^6 \approx 0.05 \)</li>
+                <li>after 12 layers: \( 0.6^{12} \approx 0.002 \)</li>
+              </ul>
+            </div>
+            <div class="callout" style="margin-top:8px"><span class="label">The result</span>By the early layers the gradient is almost zero, so they barely learn. Same vanishing gradient as class 2.3, now caused by <strong>depth</strong>.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 260 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="avg" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#a32d2d"/></marker></defs>
+              <g fill="#e6e9f4" stroke="#6b7793"><rect x="70" y="20" width="120" height="30" rx="6"/><rect x="70" y="60" width="120" height="30" rx="6"/><rect x="70" y="100" width="120" height="30" rx="6"/><rect x="70" y="140" width="120" height="30" rx="6"/><rect x="70" y="180" width="120" height="30" rx="6"/></g>
+              <g font-size="11" fill="#172033" text-anchor="middle"><text x="130" y="40">layer 1 (early)</text><text x="130" y="80">layer 2</text><text x="130" y="120">layer 3</text><text x="130" y="160">layer 4</text><text x="130" y="200">layer 5 (loss)</text></g>
+              <line x1="210" y1="195" x2="210" y2="150" stroke="#a32d2d" stroke-width="7" marker-end="url(#avg)"/>
+              <line x1="210" y1="150" x2="210" y2="110" stroke="#a32d2d" stroke-width="4.5" marker-end="url(#avg)"/>
+              <line x1="210" y1="110" x2="210" y2="70" stroke="#a32d2d" stroke-width="2.5" marker-end="url(#avg)"/>
+              <line x1="210" y1="70" x2="210" y2="35" stroke="#a32d2d" stroke-width="1" marker-end="url(#avg)"/>
+              <text x="240" y="120" text-anchor="middle" font-size="11" fill="#a32d2d" transform="rotate(-90 240 120)">gradient fades going back</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Residual connections -->
+    <section>
+      <h2><span class="eyebrow">Plumbing</span>Residual connections fix it</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A residual connection adds a layer's input back to its output.</p>
+            <p class="stmt" style="margin:4px 0">$$ \text{output} = x + \text{layer}(x) $$</p>
+            <ul class="tight">
+              <li>The gradient can flow straight back through the <code>+ x</code> path, so it never fully vanishes.</li>
+              <li>Each layer only has to learn a small <strong>change</strong> to \( x \), not rebuild it from scratch.</li>
+              <li>This is what lets us stack dozens of blocks and still train them.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="ares" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <circle cx="80" cy="30" r="16" fill="#eef4ff" stroke="#93a7d8"/><text x="80" y="35" text-anchor="middle" font-size="14" fill="#172033">x</text>
+              <line x1="80" y1="46" x2="80" y2="76" stroke="#6b7793" stroke-width="1.6" marker-end="url(#ares)"/>
+              <rect x="40" y="78" width="80" height="40" rx="8" fill="#fde9b8" stroke="#d99a00"/><text x="80" y="102" text-anchor="middle" font-size="12" fill="#172033">layer(x)</text>
+              <line x1="80" y1="118" x2="80" y2="150" stroke="#6b7793" stroke-width="1.6" marker-end="url(#ares)"/>
+              <circle cx="80" cy="164" r="15" fill="#c7e9b0" stroke="#4f9a2f"/><text x="80" y="169" text-anchor="middle" font-size="16" fill="#172033">+</text>
+              <path d="M96,30 C170,30 200,110 96,160" fill="none" stroke="#2563eb" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#ares)"/>
+              <text x="210" y="96" font-size="12" fill="#2563eb">skip: pass x</text>
+              <text x="210" y="112" font-size="12" fill="#2563eb">straight through</text>
+              <line x1="80" y1="179" x2="80" y2="200" stroke="#6b7793" stroke-width="1.6" marker-end="url(#ares)"/>
+              <text x="80" y="216" text-anchor="middle" font-size="12" fill="#172033">x + layer(x)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. LayerNorm vs BatchNorm -->
+    <section>
+      <h2><span class="eyebrow">Plumbing</span>LayerNorm, and why not BatchNorm</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">LayerNorm rescales each token's vector to mean 0 and unit spread, then applies a learned scale and shift. The point students trip on: how is it different from batch norm (class 2.5, Training in practice)?</p>
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <div class="grid-table" style="grid-template-columns: 1.1fr 1.4fr 1.3fr">
+              <div class="gt-head">Aspect</div><div class="gt-head">BatchNorm</div><div class="gt-head">LayerNorm</div>
+              <div>Normalizes over</div><div>the batch (one feature, all examples)</div><div>one token's own features</div>
+              <div>Batch-dependent</div><div class="gt-accent">yes</div><div class="gt-accent">no</div>
+              <div>Home turf</div><div>CNNs</div><div>transformers</div>
+            </div>
+            <div class="callout" style="margin-top:8px"><span class="label">Why LayerNorm here</span>Sequences vary in length, and at generation the batch is often a single token, so batch statistics are unreliable. LayerNorm works per token, independent of the batch, so it behaves the same in training and in one-token generation.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aln" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <text x="70" y="20" text-anchor="middle" font-size="12" fill="#a32d2d">one token: drifted</text>
+              <line x1="20" y1="120" x2="130" y2="120" stroke="#cbd3e6"/>
+              <rect x="30" y="60" width="16" height="60" fill="#c2621f"/><rect x="54" y="98" width="16" height="22" fill="#c2621f"/><rect x="78" y="46" width="16" height="74" fill="#c2621f"/><rect x="102" y="104" width="16" height="16" fill="#c2621f"/>
+              <line x1="150" y1="90" x2="185" y2="90" stroke="#6b7793" stroke-width="1.6" marker-end="url(#aln)"/><text x="167" y="80" text-anchor="middle" font-size="10" fill="#6b7793">norm</text>
+              <text x="250" y="20" text-anchor="middle" font-size="12" fill="#15803d">centered</text>
+              <line x1="200" y1="120" x2="310" y2="120" stroke="#cbd3e6"/><line x1="200" y1="90" x2="310" y2="90" stroke="#e2e7f5" stroke-dasharray="3 3"/>
+              <rect x="210" y="74" width="16" height="16" fill="#2563eb"/><rect x="234" y="90" width="16" height="18" fill="#2563eb"/><rect x="258" y="70" width="16" height="20" fill="#2563eb"/><rect x="282" y="90" width="16" height="14" fill="#2563eb"/>
+              <text x="255" y="150" text-anchor="middle" font-size="11" fill="#3f4a63">across this token's own features</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. FFN think per token -->
+    <section>
+      <h2><span class="eyebrow">Feed-forward</span>Think per token, after attention</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">In the block the order is attention, then add and norm, then the feed-forward layer. So it never sees raw tokens: it receives each token's vector <strong>after attention has already mixed in context</strong>.</p>
+            <ul class="tight">
+              <li>It is the small network from class 2.3 (Neural networks): Linear, ReLU, Linear.</li>
+              <li>The <strong>same</strong> network runs on every token independently, shared weights, no arrows between tokens.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">What it buys</span>Attention only re-weights and blends existing vectors. The feed-forward layer adds a non-linear transform per token, so the model can compute new features from the mixed context, not just average it. It holds much of the model's knowledge, often about two-thirds of the parameters.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="af" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <text x="150" y="16" text-anchor="middle" font-size="11.5" fill="#3f4a63">one vector per token, after attention + norm</text>
+              <g font-size="11" text-anchor="middle" fill="#3f4a63">
+                <rect x="20" y="26" width="44" height="28" rx="5" fill="#eef4ff" stroke="#93a7d8"/><text x="42" y="44">the</text>
+                <rect x="86" y="26" width="44" height="28" rx="5" fill="#eef4ff" stroke="#93a7d8"/><text x="108" y="44">cat</text>
+                <rect x="152" y="26" width="44" height="28" rx="5" fill="#eef4ff" stroke="#93a7d8"/><text x="174" y="44">sat</text>
+                <rect x="218" y="26" width="44" height="28" rx="5" fill="#eef4ff" stroke="#93a7d8"/><text x="240" y="44">down</text>
+              </g>
+              <g stroke="#6b7793" stroke-width="1.4" marker-end="url(#af)"><line x1="42" y1="54" x2="42" y2="96"/><line x1="108" y1="54" x2="108" y2="96"/><line x1="174" y1="54" x2="174" y2="96"/><line x1="240" y1="54" x2="240" y2="96"/></g>
+              <g font-size="10" text-anchor="middle" fill="#172033">
+                <rect x="16" y="98" width="52" height="42" rx="6" fill="#f7c9a3" stroke="#c2621f"/><text x="42" y="116">same</text><text x="42" y="130">MLP</text>
+                <rect x="82" y="98" width="52" height="42" rx="6" fill="#f7c9a3" stroke="#c2621f"/><text x="108" y="116">same</text><text x="108" y="130">MLP</text>
+                <rect x="148" y="98" width="52" height="42" rx="6" fill="#f7c9a3" stroke="#c2621f"/><text x="174" y="116">same</text><text x="174" y="130">MLP</text>
+                <rect x="214" y="98" width="52" height="42" rx="6" fill="#f7c9a3" stroke="#c2621f"/><text x="240" y="116">same</text><text x="240" y="130">MLP</text>
+              </g>
+              <g stroke="#6b7793" stroke-width="1.4" marker-end="url(#af)"><line x1="42" y1="140" x2="42" y2="182"/><line x1="108" y1="140" x2="108" y2="182"/><line x1="174" y1="140" x2="174" y2="182"/><line x1="240" y1="140" x2="240" y2="182"/></g>
+              <g fill="#c7e9b0" stroke="#4f9a2f"><rect x="20" y="184" width="44" height="28" rx="5"/><rect x="86" y="184" width="44" height="28" rx="5"/><rect x="152" y="184" width="44" height="28" rx="5"/><rect x="218" y="184" width="44" height="28" rx="5"/></g>
+              <text x="150" y="234" text-anchor="middle" font-size="12" fill="#3f4a63">each token transformed on its own, no sideways arrows</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Encoder block -->
+    <section>
+      <h2><span class="eyebrow">The block</span>The encoder block, assembled</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Put the parts together and you get one block. Attention mixes across tokens, add and norm stabilize, the feed-forward layer thinks per token, add and norm again.</p>
+            <ul class="tight">
+              <li>Every arrow is a residual-friendly step from the last few slides.</li>
+              <li>The shape in equals the shape out, so blocks can stack.</li>
+              <li>This is the <strong>encoder</strong> block: its attention is unmasked, so every token sees the whole sequence.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 460" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:430px" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="tb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/></marker></defs>
+              <rect x="70" y="16" width="180" height="40" rx="8" fill="#eef4ff" stroke="#93a7d8" stroke-width="1.5"/><text x="160" y="41" text-anchor="middle" font-size="13" fill="#172033">input + position</text>
+              <rect x="70" y="92" width="180" height="40" rx="8" fill="#fde9b8" stroke="#d99a00" stroke-width="1.5"/><text x="160" y="117" text-anchor="middle" font-size="13" fill="#172033">multi-head attention</text>
+              <rect x="70" y="168" width="180" height="36" rx="8" fill="#e6e9f4" stroke="#6b7793" stroke-width="1.5"/><text x="160" y="191" text-anchor="middle" font-size="12" fill="#172033">add &amp; norm</text>
+              <rect x="70" y="240" width="180" height="40" rx="8" fill="#f7c9a3" stroke="#c2621f" stroke-width="1.5"/><text x="160" y="265" text-anchor="middle" font-size="13" fill="#172033">feed-forward</text>
+              <rect x="70" y="316" width="180" height="36" rx="8" fill="#e6e9f4" stroke="#6b7793" stroke-width="1.5"/><text x="160" y="339" text-anchor="middle" font-size="12" fill="#172033">add &amp; norm</text>
+              <rect x="70" y="388" width="180" height="36" rx="8" fill="#c7e9b0" stroke="#4f9a2f" stroke-width="1.5"/><text x="160" y="411" text-anchor="middle" font-size="13" fill="#172033">output</text>
+              <g stroke="#2563eb" stroke-width="2" fill="none">
+                <line x1="160" y1="56" x2="160" y2="90" marker-end="url(#tb)"/>
+                <line x1="160" y1="132" x2="160" y2="166" marker-end="url(#tb)"/>
+                <line x1="160" y1="204" x2="160" y2="238" marker-end="url(#tb)"/>
+                <line x1="160" y1="280" x2="160" y2="314" marker-end="url(#tb)"/>
+                <line x1="160" y1="352" x2="160" y2="386" marker-end="url(#tb)"/>
+              </g>
+              <path d="M70,40 L30,40 L30,186 L68,186" fill="none" stroke="#93a7d8" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#tb)"/>
+              <path d="M30,200 L30,334 L68,334" fill="none" stroke="#93a7d8" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#tb)"/>
+              <text x="18" y="250" text-anchor="middle" font-size="10.5" fill="#6b7793" transform="rotate(-90 18 250)">residual skips</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Decoder block -->
+    <section>
+      <h2><span class="eyebrow">The block</span>The decoder block adds two things</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A decoder block is the encoder block with two changes, so it can generate text left to right.</p>
+            <ul class="tight">
+              <li><strong>Masked</strong> self-attention: the causal mask from class 3.2 (Attention), so a token sees only earlier tokens.</li>
+              <li><strong>Cross-attention</strong>: an extra attention layer that looks at the encoder's output. Used only in encoder-decoder models (translation); decoder-only models like GPT skip it.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">Decoder-only</span>Most LLMs keep just the masked self-attention and the feed-forward layer, no cross-attention.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 460" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:430px" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="td" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2563eb"/></marker></defs>
+              <rect x="60" y="14" width="180" height="36" rx="8" fill="#eef4ff" stroke="#93a7d8" stroke-width="1.5"/><text x="150" y="37" text-anchor="middle" font-size="12" fill="#172033">input + position</text>
+              <rect x="60" y="76" width="180" height="40" rx="8" fill="#fde9b8" stroke="#d99a00" stroke-width="1.5"/><text x="150" y="95" text-anchor="middle" font-size="12" fill="#a32d2d" font-weight="700">masked</text><text x="150" y="110" text-anchor="middle" font-size="11" fill="#172033">self-attention</text>
+              <rect x="60" y="142" width="180" height="30" rx="8" fill="#e6e9f4" stroke="#6b7793" stroke-width="1.5"/><text x="150" y="162" text-anchor="middle" font-size="11" fill="#172033">add &amp; norm</text>
+              <rect x="60" y="198" width="180" height="40" rx="8" fill="#fde9b8" stroke="#d99a00" stroke-width="1.5" stroke-dasharray="5 3"/><text x="150" y="217" text-anchor="middle" font-size="12" fill="#3f6fd0" font-weight="700">cross-attention</text><text x="150" y="231" text-anchor="middle" font-size="10" fill="#3f4a63">(encoder-decoder only)</text>
+              <rect x="60" y="264" width="180" height="30" rx="8" fill="#e6e9f4" stroke="#6b7793" stroke-width="1.5"/><text x="150" y="284" text-anchor="middle" font-size="11" fill="#172033">add &amp; norm</text>
+              <rect x="60" y="320" width="180" height="36" rx="8" fill="#f7c9a3" stroke="#c2621f" stroke-width="1.5"/><text x="150" y="342" text-anchor="middle" font-size="12" fill="#172033">feed-forward</text>
+              <rect x="60" y="382" width="180" height="30" rx="8" fill="#e6e9f4" stroke="#6b7793" stroke-width="1.5"/><text x="150" y="402" text-anchor="middle" font-size="11" fill="#172033">add &amp; norm</text>
+              <rect x="60" y="424" width="180" height="28" rx="8" fill="#c7e9b0" stroke="#4f9a2f" stroke-width="1.5"/><text x="150" y="443" text-anchor="middle" font-size="12" fill="#172033">output</text>
+              <g stroke="#2563eb" stroke-width="1.8" fill="none">
+                <line x1="150" y1="50" x2="150" y2="74" marker-end="url(#td)"/>
+                <line x1="150" y1="116" x2="150" y2="140" marker-end="url(#td)"/>
+                <line x1="150" y1="172" x2="150" y2="196" marker-end="url(#td)"/>
+                <line x1="150" y1="238" x2="150" y2="262" marker-end="url(#td)"/>
+                <line x1="150" y1="294" x2="150" y2="318" marker-end="url(#td)"/>
+                <line x1="150" y1="356" x2="150" y2="380" marker-end="url(#td)"/>
+                <line x1="150" y1="412" x2="150" y2="422" marker-end="url(#td)"/>
+              </g>
+              <line x1="10" y1="218" x2="58" y2="218" stroke="#3f6fd0" stroke-width="1.8" marker-end="url(#td)"/><text x="14" y="208" font-size="9.5" fill="#3f6fd0">from encoder</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Repeat N -->
+    <section>
+      <h2><span class="eyebrow">The stack</span>Repeat the block N times</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Stack the same block many times. Each one refines the representation a little more, and different depths learn different things.</p>
+            <ul class="tight">
+              <li>Early blocks catch surface patterns: word forms, local phrases.</li>
+              <li>Middle blocks resolve grammar and references.</li>
+              <li>Late blocks capture meaning and long-range structure.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">That is the whole model</span>A transformer is an embedding, a stack of N identical blocks, and an output head. Bigger models are mostly more blocks, wider vectors, and more data.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="ast" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2563eb"/></marker></defs>
+              <rect x="80" y="210" width="140" height="28" rx="6" fill="#eef4ff" stroke="#93a7d8"/><text x="150" y="229" text-anchor="middle" font-size="12" fill="#172033">embedding + position</text>
+              <g fill="#fde9b8" stroke="#d99a00">
+                <rect x="90" y="160" width="120" height="34" rx="7"/><rect x="90" y="116" width="120" height="34" rx="7"/><rect x="90" y="60" width="120" height="34" rx="7"/>
+              </g>
+              <g font-size="12" fill="#172033" text-anchor="middle"><text x="150" y="181">block 1</text><text x="150" y="137">block 2</text><text x="150" y="81">block N</text></g>
+              <text x="150" y="107" text-anchor="middle" font-size="16" fill="#6b7793">&#8942;</text>
+              <rect x="80" y="18" width="140" height="28" rx="6" fill="#c7e9b0" stroke="#4f9a2f"/><text x="150" y="37" text-anchor="middle" font-size="12" fill="#172033">output head</text>
+              <g stroke="#2563eb" stroke-width="1.8" fill="none" marker-end="url(#ast)">
+                <line x1="150" y1="210" x2="150" y2="196"/><line x1="150" y1="160" x2="150" y2="152"/><line x1="150" y1="60" x2="150" y2="48"/>
+              </g>
+              <text x="245" y="130" text-anchor="middle" font-size="14" fill="#172033" font-weight="700">&#215; N</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Encoder-only -->
+    <section>
+      <h2><span class="eyebrow">Architectures</span>Encoder-only: understand the whole text</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A stack of encoder blocks with <strong>bidirectional</strong> attention: every token sees every other token, left and right, at once. It reads text into rich representations; it does not generate.</p>
+            <ul class="tight">
+              <li><strong>Models:</strong> BERT, RoBERTa, DistilBERT.</li>
+              <li><strong>Where it shines:</strong> understanding tasks, classification, sentiment, named-entity recognition, embeddings and search.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">A strength, not a limit</span>These are the jobs the architecture is best at because it sees the full input at once. Any transformer can be pushed at many tasks; this is where each design is natural.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 280 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="150" y="16" text-anchor="middle" font-size="12" fill="#3f4a63">rows attend to columns</text>
+              <g font-size="11" fill="#3f4a63" text-anchor="middle"><text x="68" y="48">t1</text><text x="112" y="48">t2</text><text x="156" y="48">t3</text><text x="200" y="48">t4</text></g>
+              <g font-size="11" fill="#3f4a63" text-anchor="middle"><text x="34" y="79">t1</text><text x="34" y="119">t2</text><text x="34" y="159">t3</text><text x="34" y="199">t4</text></g>
+              <g fill="#2563eb">
+                <rect x="48" y="56" width="40" height="36" opacity="0.75"/><rect x="92" y="56" width="40" height="36" opacity="0.5"/><rect x="136" y="56" width="40" height="36" opacity="0.5"/><rect x="180" y="56" width="40" height="36" opacity="0.5"/>
+                <rect x="48" y="96" width="40" height="36" opacity="0.5"/><rect x="92" y="96" width="40" height="36" opacity="0.75"/><rect x="136" y="96" width="40" height="36" opacity="0.5"/><rect x="180" y="96" width="40" height="36" opacity="0.5"/>
+                <rect x="48" y="136" width="40" height="36" opacity="0.5"/><rect x="92" y="136" width="40" height="36" opacity="0.5"/><rect x="136" y="136" width="40" height="36" opacity="0.75"/><rect x="180" y="136" width="40" height="36" opacity="0.5"/>
+                <rect x="48" y="176" width="40" height="36" opacity="0.5"/><rect x="92" y="176" width="40" height="36" opacity="0.5"/><rect x="136" y="176" width="40" height="36" opacity="0.5"/><rect x="180" y="176" width="40" height="36" opacity="0.75"/>
+              </g>
+              <text x="150" y="230" text-anchor="middle" font-size="12" fill="#15803d" font-weight="700">every cell filled: bidirectional, no mask</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Decoder-only -->
+    <section>
+      <h2><span class="eyebrow">Architectures</span>Decoder-only: generate the next token</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A stack of decoder blocks with <strong>masked</strong> attention: each token sees only itself and the tokens before it. Predict the next token, append it, repeat. Almost every modern LLM is this.</p>
+            <ul class="tight">
+              <li><strong>Models:</strong> GPT, Llama, Mistral.</li>
+              <li><strong>Where it shines:</strong> generation, chat, writing, code, and, through prompting, most tasks.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">The one difference</span>The causal mask is the whole change from an encoder. It is exactly what makes next-token prediction possible.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 280 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="150" y="16" text-anchor="middle" font-size="12" fill="#3f4a63">rows attend to columns</text>
+              <g font-size="11" fill="#3f4a63" text-anchor="middle"><text x="68" y="48">t1</text><text x="112" y="48">t2</text><text x="156" y="48">t3</text><text x="200" y="48">t4</text></g>
+              <g font-size="11" fill="#3f4a63" text-anchor="middle"><text x="34" y="79">t1</text><text x="34" y="119">t2</text><text x="34" y="159">t3</text><text x="34" y="199">t4</text></g>
+              <g>
+                <rect x="48" y="56" width="40" height="36" fill="#2563eb" opacity="0.75"/><rect x="92" y="56" width="40" height="36" fill="#e9edf5"/><rect x="136" y="56" width="40" height="36" fill="#e9edf5"/><rect x="180" y="56" width="40" height="36" fill="#e9edf5"/>
+                <rect x="48" y="96" width="40" height="36" fill="#2563eb" opacity="0.55"/><rect x="92" y="96" width="40" height="36" fill="#2563eb" opacity="0.75"/><rect x="136" y="96" width="40" height="36" fill="#e9edf5"/><rect x="180" y="96" width="40" height="36" fill="#e9edf5"/>
+                <rect x="48" y="136" width="40" height="36" fill="#2563eb" opacity="0.45"/><rect x="92" y="136" width="40" height="36" fill="#2563eb" opacity="0.55"/><rect x="136" y="136" width="40" height="36" fill="#2563eb" opacity="0.75"/><rect x="180" y="136" width="40" height="36" fill="#e9edf5"/>
+                <rect x="48" y="176" width="40" height="36" fill="#2563eb" opacity="0.4"/><rect x="92" y="176" width="40" height="36" fill="#2563eb" opacity="0.45"/><rect x="136" y="176" width="40" height="36" fill="#2563eb" opacity="0.55"/><rect x="180" y="176" width="40" height="36" fill="#2563eb" opacity="0.75"/>
+              </g>
+              <text x="150" y="230" text-anchor="middle" font-size="12" fill="#a32d2d" font-weight="700">lower triangle only: causal, left to right</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17. Encoder-decoder -->
+    <section>
+      <h2><span class="eyebrow">Architectures</span>Encoder-decoder: read one text, write another</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">An encoder reads the whole input into vectors; a decoder generates the output token by token, using cross-attention to look back at the encoder. This was the original transformer.</p>
+            <ul class="tight">
+              <li><strong>Models:</strong> T5, BART, Whisper, the original Transformer.</li>
+              <li><strong>Where it shines:</strong> turning one sequence into another, translation, summarization, speech to text.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aed3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3f6fd0"/></marker></defs>
+              <rect x="30" y="40" width="90" height="140" rx="10" fill="#e7f6e3" stroke="#4f9a2f"/><text x="75" y="34" text-anchor="middle" font-size="12" fill="#3d7a24" font-weight="700">encoder</text>
+              <text x="75" y="112" text-anchor="middle" font-size="11" fill="#3f4a63">reads the</text><text x="75" y="128" text-anchor="middle" font-size="11" fill="#3f4a63">input</text>
+              <rect x="200" y="40" width="90" height="140" rx="10" fill="#eef4ff" stroke="#93a7d8"/><text x="245" y="34" text-anchor="middle" font-size="12" fill="#3f6fd0" font-weight="700">decoder</text>
+              <text x="245" y="112" text-anchor="middle" font-size="11" fill="#3f4a63">writes the</text><text x="245" y="128" text-anchor="middle" font-size="11" fill="#3f4a63">output</text>
+              <line x1="120" y1="110" x2="198" y2="110" stroke="#3f6fd0" stroke-width="2" marker-end="url(#aed3)"/><text x="160" y="100" text-anchor="middle" font-size="10" fill="#3f6fd0">cross-attention</text>
+              <text x="75" y="200" text-anchor="middle" font-size="11" fill="#3f4a63">"le chat"</text>
+              <text x="245" y="200" text-anchor="middle" font-size="11" fill="#3f4a63">"the cat"</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 18. Output head -->
+    <section>
+      <h2><span class="eyebrow">The output</span>From the last block to a next token</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">After the final block, one linear layer maps each token's vector to a score for every word in the vocabulary. Softmax turns those scores into a probability for the next token.</p>
+            <ul class="tight">
+              <li>The output head is a matrix of shape \( d_{\text{model}} \) by vocabulary size.</li>
+              <li>Softmax over the vocabulary gives the next-token distribution.</li>
+              <li>How you pick from that distribution is decoding, the whole of class 3.5 (From models to LLMs).</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="aoh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <rect x="110" y="16" width="100" height="36" rx="8" fill="#c7e9b0" stroke="#4f9a2f"/><text x="160" y="39" text-anchor="middle" font-size="13" fill="#172033">last vector</text>
+              <line x1="160" y1="52" x2="160" y2="78" stroke="#6b7793" stroke-width="1.5" marker-end="url(#aoh)"/>
+              <rect x="96" y="80" width="128" height="34" rx="8" fill="#e8f0ff" stroke="#3f6fd0"/><text x="160" y="102" text-anchor="middle" font-size="13" fill="#172033">linear to vocab</text>
+              <line x1="160" y1="114" x2="160" y2="140" stroke="#6b7793" stroke-width="1.5" marker-end="url(#aoh)"/>
+              <line x1="40" y1="210" x2="300" y2="210" stroke="#6b7793"/>
+              <rect x="60" y="150" width="30" height="60" fill="#2563eb"/><rect x="110" y="184" width="30" height="26" fill="#2563eb"/><rect x="160" y="176" width="30" height="34" fill="#2563eb"/><rect x="210" y="192" width="30" height="18" fill="#2563eb"/>
+              <text x="75" y="146" text-anchor="middle" font-size="11" fill="#15803d" font-weight="700">sat</text>
+              <text x="160" y="230" text-anchor="middle" font-size="12" fill="#3f4a63">a probability per vocabulary word</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 19. Build -->
+    <section>
+      <h2><span class="eyebrow">Build</span>Shapes at every stage</h2>
+      <div class="body center">
+        <p class="lead">In the notebook you build one transformer block in PyTorch and pass a short sequence through it, printing the tensor shape after embeddings, after attention, after the feed-forward layer, and at the output. You apply a causal mask to make it a decoder block, and add an output head that turns the last vector into a next-token distribution. The architecture becomes concrete numbers, not a diagram.</p>
+      </div>
+    </section>
+
+    <!-- 20. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap up</span>Your turn, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="col-label">Micro-assignment</div>
+            <ul>
+              <li>Count a feed-forward layer's parameters and compute a head dimension.</li>
+              <li>Apply a residual add and a LayerNorm centering by hand.</li>
+              <li>Concatenate two heads. Details in the micro-assignment folder.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="col-label">Next: class 3.4, Using pretrained transformers</div>
+            <ul>
+              <li>The Hugging Face hub.</li>
+              <li>Tokenizer and model, loaded together.</li>
+              <li>Pipelines and inference.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
