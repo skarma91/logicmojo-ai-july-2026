@@ -161,13 +161,6 @@ tools/
 
 # Course modules and their submodules
 
-modules/module-2-ml-dl-essentials/01-what-is-ml/micro-assignment/solution/
-
-modules/module-2-ml-dl-essentials/02-how-models-learn/micro-assignment/solution/
-
-modules/module-2-ml-dl-essentials/03-neural-networks/micro-assignment/solution/
-modules/module-2-ml-dl-essentials/04-pytorch-fundamentals/micro-assignment/solution/
-modules/module-2-ml-dl-essentials/05-training-in-practice/micro-assignment/solution/
 modules/module-2-ml-dl-essentials/milestone-assignment/
 modules/module-2-ml-dl-essentials/milestone-assignment/solution/
 modules/module-2-ml-dl-essentials/suggested_reading_list/
