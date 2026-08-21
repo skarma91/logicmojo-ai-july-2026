@@ -297,6 +297,24 @@
 }
 .reveal .callout .label { color: var(--c-warn); }
 
+/* Vertical rhythm: when a statement, callout, analogy, or list sits directly
+   next to another such block, give it a gap so text never sits flush against a
+   box. Inline margin styles still override this for fine-tuned cases. */
+.reveal .body .stmt + .stmt,
+.reveal .body .stmt + p,
+.reveal .body p + .stmt,
+.reveal .body p + p,
+.reveal .body .stmt + .callout,
+.reveal .body .stmt + .analogy,
+.reveal .body .stmt + ul,
+.reveal .body p + .callout,
+.reveal .body ul + .callout,
+.reveal .body .callout + .callout,
+.reveal .body .callout + .stmt,
+.reveal .body .callout + ul,
+.reveal .body .callout + p,
+.reveal .body .analogy + .stmt { margin-top: 14px; }
+
 /* === Venn diagrams (set operations) ====================================== */
 .reveal .venn-row {
   display: flex;
@@ -494,6 +512,11 @@
    inline: style="grid-template-columns: repeat(N, 1fr)". Cells are divs;
    header cells use .gt-head, an accent cell uses .gt-accent. The 1px gap over
    a line-colored background draws crisp, uniform grid lines. */
+/* Pin bold to a concrete weight. The reset normalizes <strong>/<b> to
+   'bolder', which resolves against the inherited weight and can render barely
+   heavier (or not at all) in some contexts, such as grid cells. Force 700. */
+.reveal strong, .reveal b { font-weight: 700; }
+
 .grid-table {
   display: grid;
   gap: 1px;
@@ -510,9 +533,14 @@
   color: var(--c-ink);
   padding: 10px 14px;
   text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Block, not flex or grid: those turn inline children (<strong>, <code>) into
+     separate flex/grid items and drop the whitespace between them, so
+     "the <strong>bank</strong> of" renders as "thebankof". A block cell keeps the
+     inline run intact (whitespace preserved). Grid items still stretch, so the
+     1px line grid holds. align-content centers the text vertically on modern
+     browsers and is harmlessly ignored on older ones (falls back to top). */
+  display: block;
+  align-content: center;
 }
 .grid-table .gt-head {
   background: var(--c-surface);
