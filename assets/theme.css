@@ -138,7 +138,7 @@
 .reveal .body .stmt {
   font-size: 1.12em;
   color: var(--c-ink);
-  font-weight: 600;
+  font-weight: 400;   /* normal: a lead line is larger, not bold; bold is reserved for <strong> highlights */
   margin: 0;
 }
 
