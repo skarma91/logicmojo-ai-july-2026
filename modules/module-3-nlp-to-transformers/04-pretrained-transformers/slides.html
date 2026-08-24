@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 3.4 - Using pretrained transformers</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 3 &middot; Class 3.4</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 3 &middot; NLP to Transformers &middot; Class 3.4</span>
+      <h1>Using pretrained transformers</h1>
+      <p class="lead">You will use these models off the shelf, not build them. Load one from Hugging Face, run it, and read the output.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The hub<span class="step-note">A public library of pretrained models.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Tokenizer and model<span class="step-note">Always load the matching pair.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Pipelines<span class="step-note">Tokenize, run, decode, in one call.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Inference and batching<span class="step-note">Run in eval mode; batch for speed.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">From theory to practice</span>You understand the block from class 3.3 (The Transformer). Now you run real ones without wiring every layer.</div>
+            <div class="pill"><span class="pill-tag">The source of open models</span>The hub is where the open models for Ollama and Groq, used later, originate.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The hub -->
+    <section>
+      <h2><span class="eyebrow">The hub</span>A public library of models</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">Hugging Face is a public hub of pretrained models and datasets. Families differ by size and purpose: encoders for understanding, decoders for generation, small ones for a laptop, large ones for a server.</p>
+            <div class="callout" style="margin-top:10px"><span class="label">Pick to fit</span>Choose a model that matches your task and your hardware. A tiny model runs on CPU in seconds; a large one needs a GPU. Start small.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="ahub" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <rect x="60" y="20" width="200" height="86" rx="12" fill="#eef4ff" stroke="#93a7d8" stroke-width="1.5"/>
+              <text x="160" y="44" text-anchor="middle" font-size="14" font-weight="700" fill="#172033">the hub</text>
+              <g font-size="12" fill="#3f4a63" text-anchor="middle">
+                <rect x="76" y="56" width="60" height="34" rx="6" fill="#fff" stroke="#c3d0ee"/><text x="106" y="77">models</text>
+                <rect x="184" y="56" width="60" height="34" rx="6" fill="#fff" stroke="#c3d0ee"/><text x="214" y="77">datasets</text>
+              </g>
+              <line x1="160" y1="106" x2="160" y2="140" stroke="#6b7793" stroke-width="1.5" marker-end="url(#ahub)"/>
+              <text x="172" y="127" text-anchor="start" font-size="11.5" fill="#6b7793">from_pretrained</text>
+              <rect x="90" y="142" width="140" height="44" rx="10" fill="#c7e9b0" stroke="#4f9a2f" stroke-width="1.5"/><text x="160" y="169" text-anchor="middle" font-size="13" fill="#172033">your machine</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Load pair -->
+    <section>
+      <h2><span class="eyebrow">Loading</span>Tokenizer and model, together</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div class="code-lg">
+            <pre><code data-trim class="language-python">from transformers import AutoTokenizer, AutoModel
+
+name = "distilbert-base-uncased"
+tok = AutoTokenizer.from_pretrained(name)
+model = AutoModel.from_pretrained(name)
+
+inputs = tok("a short sentence", return_tensors="pt")
+outputs = model(**inputs)</code></pre>
+          </div>
+          <div>
+            <ul>
+              <li>Load both with <code>from_pretrained</code>, using the <strong>same name</strong>.</li>
+              <li>The tokenizer must be the exact one the model was trained with.</li>
+              <li><code>return_tensors="pt"</code> gives PyTorch tensors, ready for the model.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4b. Auto classes (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Loading</span>Auto classes: match the head to the task</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0"><code>AutoModel</code> gives the bare transformer stack from class 3.3 (The Transformer). For a task you usually want the stack with the right output head already attached.</p>
+        <div class="grid-table" style="grid-template-columns: 2.1fr 1.4fr 1.6fr">
+          <div class="gt-head">Class</div><div class="gt-head">Head it adds</div><div class="gt-head">Use for</div>
+          <div><code>AutoModel</code></div><div>none (raw vectors)</div><div>embeddings, custom heads</div>
+          <div><code>AutoModelForSequenceClassification</code></div><div>a classifier</div><div>sentiment, topic labels</div>
+          <div><code>AutoModelForCausalLM</code></div><div>a vocabulary head</div><div>text generation (decoder-only)</div>
+          <div><code>AutoModelForTokenClassification</code></div><div>per-token labels</div><div>named-entity recognition</div>
+        </div>
+        <div class="callout"><span class="label">Same head as class 3.3</span>The head is the output layer from class 3.3 (The Transformer). The <code>...For...</code> class loads the block stack plus the head that fits your task, with matching pretrained weights when they exist.</div>
+      </div>
+    </section>
+
+    <!-- 5. Mismatch trap -->
+    <section>
+      <h2><span class="eyebrow">Loading</span>The mismatched-tokenizer trap</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A model learns what each id <strong>means</strong> during training. Pair it with a different tokenizer and the same id points to a different token, so the input is quietly garbage, no error, just bad output.</p>
+            <div class="callout" style="margin-top:10px"><span class="label">The fix</span>Load the tokenizer and model by the <strong>same name</strong>, so their id-to-token maps agree.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="amt" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <text x="150" y="18" text-anchor="middle" font-size="11" fill="#3f4a63">tokenizer A produces</text>
+              <rect x="110" y="26" width="80" height="34" rx="8" fill="#fde9b8" stroke="#d99a00"/><text x="150" y="48" text-anchor="middle" font-size="14" fill="#172033">id 2085</text>
+              <line x1="130" y1="60" x2="80" y2="104" stroke="#6b7793" stroke-width="1.5" marker-end="url(#amt)"/>
+              <line x1="170" y1="60" x2="220" y2="104" stroke="#6b7793" stroke-width="1.5" marker-end="url(#amt)"/>
+              <rect x="16" y="106" width="128" height="66" rx="8" fill="#e7f6e3" stroke="#4f9a2f"/><text x="80" y="128" text-anchor="middle" font-size="11.5" fill="#3d7a24" font-weight="700">model trained with A</text><text x="80" y="150" text-anchor="middle" font-size="13" fill="#172033">2085 = "cats"</text><text x="80" y="166" text-anchor="middle" font-size="14" fill="#15803d">correct</text>
+              <rect x="156" y="106" width="128" height="66" rx="8" fill="#fbe4e4" stroke="#a32d2d"/><text x="220" y="128" text-anchor="middle" font-size="11.5" fill="#a32d2d" font-weight="700">a different model</text><text x="220" y="150" text-anchor="middle" font-size="13" fill="#172033">2085 = "banana"</text><text x="220" y="166" text-anchor="middle" font-size="14" fill="#a32d2d">garbage</text>
+              <text x="150" y="204" text-anchor="middle" font-size="11.5" fill="#3f4a63">same id, different meaning to a different model</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Pipelines -->
+    <section>
+      <h2><span class="eyebrow">Pipelines</span>The one-call path</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div class="code-lg">
+            <pre><code data-trim class="language-python">from transformers import pipeline
+
+clf = pipeline("sentiment-analysis")
+print(clf("I loved this class"))
+# [{'label': 'POSITIVE', 'score': 0.99}]</code></pre>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="apl" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b7793"/></marker></defs>
+              <text x="160" y="20" text-anchor="middle" font-size="12" fill="#172033">"I loved this class"</text>
+              <line x1="160" y1="26" x2="160" y2="46" stroke="#6b7793" stroke-width="1.5" marker-end="url(#apl)"/>
+              <rect x="12" y="48" width="296" height="82" rx="12" fill="#f4f6fb" stroke="#93a7d8" stroke-dasharray="5 4"/>
+              <text x="160" y="64" text-anchor="middle" font-size="11.5" fill="#3f4a63" font-weight="700">pipeline(...)</text>
+              <g font-size="11" text-anchor="middle" fill="#172033">
+                <rect x="26" y="76" width="76" height="40" rx="7" fill="#eef4ff" stroke="#93a7d8"/><text x="64" y="100">tokenize</text>
+                <rect x="122" y="76" width="76" height="40" rx="7" fill="#fde9b8" stroke="#d99a00"/><text x="160" y="100">model</text>
+                <rect x="218" y="76" width="76" height="40" rx="7" fill="#f7c9a3" stroke="#c2621f"/><text x="256" y="100">decode</text>
+              </g>
+              <g stroke="#6b7793" stroke-width="1.4" marker-end="url(#apl)"><line x1="102" y1="96" x2="120" y2="96"/><line x1="198" y1="96" x2="216" y2="96"/></g>
+              <line x1="160" y1="130" x2="160" y2="150" stroke="#6b7793" stroke-width="1.5" marker-end="url(#apl)"/>
+              <text x="160" y="172" text-anchor="middle" font-size="12" fill="#15803d" font-weight="700">POSITIVE, 0.99</text>
+            </svg>
+          </div>
+        </div>
+        <div class="callout"><span class="label">One call, three steps</span>A pipeline wraps tokenize, run, and decode, and picks a sensible default model for the task. It is the fast way to a result before you hand-wire the steps; pass <code>model="..."</code> to choose a specific model.</div>
+      </div>
+    </section>
+
+    <!-- 6b. Common tasks and pipelines (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Pipelines</span>Common tasks, one line each</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.4fr 1.8fr 1.6fr">
+          <div class="gt-head">Task</div><div class="gt-head">pipeline(...)</div><div class="gt-head">Returns</div>
+          <div>Sentiment</div><div><code>"sentiment-analysis"</code></div><div>a label and a score</div>
+          <div>Named entities</div><div><code>"ner"</code></div><div>spans with entity types</div>
+          <div>Embeddings</div><div><code>"feature-extraction"</code></div><div>a vector per token</div>
+          <div>Generation</div><div><code>"text-generation"</code></div><div>continued text</div>
+          <div>Summarize</div><div><code>"summarization"</code></div><div>a shorter text</div>
+          <div>Question answering</div><div><code>"question-answering"</code></div><div>an answer span</div>
+        </div>
+        <div class="callout"><span class="label">Swap the model</span>Each name loads a sensible default model. Pass <code>model="..."</code> to choose a specific one from the hub for the same task.</div>
+      </div>
+    </section>
+
+    <!-- 7. Inference + batching -->
+    <section>
+      <h2><span class="eyebrow">Inference</span>Eval mode, and batch for speed</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="code-lg">
+            <pre><code data-trim class="language-python">import torch
+model.eval()
+texts = ["first", "second", "third"]
+batch = tok(texts, padding=True, return_tensors="pt")
+with torch.no_grad():
+    out = model(**batch)</code></pre>
+          </div>
+          <div>
+            <ul>
+              <li>Use <code>model.eval()</code> and <code>torch.no_grad()</code> for inference, exactly as in class 2.5 (Training in practice).</li>
+              <li>Pass several texts at once as a padded batch for speed, the batching idea from class 2.5.</li>
+              <li>No gradients, no training, just a forward pass.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7b. Reading the output (NEW) -->
+    <section>
+      <h2><span class="eyebrow">Inference</span>Reading a classification output</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt">A classification model returns raw <strong>logits</strong>, one per label. Softmax turns them into probabilities, argmax picks the winner, and the model's <code>id2label</code> names it.</p>
+            <ul class="tight">
+              <li>Logits (2 labels): \( (-1.5,\ 2.3) \).</li>
+              <li>Softmax: \( (0.02,\ 0.98) \).</li>
+              <li>Argmax gives id 1, and <code>id2label[1]</code> is "POSITIVE".</li>
+            </ul>
+          </div>
+          <div class="code-lg">
+            <pre><code data-trim class="language-python">out = model(**inputs)
+probs = out.logits[0].softmax(-1)
+label_id = probs.argmax().item()
+print(model.config.id2label[label_id])
+# POSITIVE</code></pre>
+          </div>
+        </div>
+        <div class="callout"><span class="label">The class 3.3 head in practice</span>This is exactly the output head from class 3.3 (The Transformer): a linear layer to the labels, then softmax. A pipeline just does these lines for you.</div>
+      </div>
+    </section>
+
+    <!-- 8. Build -->
+    <section>
+      <h2><span class="eyebrow">Build</span>Run a real model on a real task</h2>
+      <div class="body">
+        <p class="lead">In the notebook you install Hugging Face transformers, load a small pretrained model, and run inference on a text task: a sentiment classification and a set of sentence embeddings. You read the outputs and see the theory from classes 3.1 to 3.3 doing real work.</p>
+      </div>
+    </section>
+
+    <!-- 9. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap up</span>Your turn, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="col-label">Micro-assignment</div>
+            <ul>
+              <li>Match tasks to pipelines and reason about the tokenizer pairing.</li>
+              <li>Work out a padded batch's shape.</li>
+              <li>Details in the micro-assignment folder.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="col-label">Next: class 3.5, From models to LLMs</div>
+            <ul>
+              <li>Next-token pretraining at scale.</li>
+              <li>Context windows and emergent abilities.</li>
+              <li>Decoding: temperature and top-p.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
