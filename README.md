@@ -35,7 +35,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [3.4 Using pretrained transformers](modules/module-3-nlp-to-transformers/04-pretrained-transformers/)
 - [3.5 From models to LLMs](modules/module-3-nlp-to-transformers/05-from-models-to-llms/)
 - Module 3 milestone assignment (upcoming)
-- Suggested reading (upcoming)
+- [Suggested reading](modules/module-3-nlp-to-transformers/suggested_reading_list/)
 
 ### Module 4: LLMs and GenAI
 - 4.1 Working with LLMs (upcoming)
