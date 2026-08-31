@@ -155,6 +155,23 @@
       </div>
     </section>
 
+    <!-- 6b. Applying BPE to a new word (encode) -->
+    <section>
+      <h2><span class="eyebrow">Tokens</span>Applying the rules: encode a new word</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">Training built the rulebook. To tokenize a <strong>new</strong> word, start from its characters and apply the learned merges in the order they were learned, highest priority first, until no rule matches. Take <code>slowest</code> with the three merges from the previous slide:</p>
+        <div class="grid-table" style="grid-template-columns: 0.6fr 1.4fr 2fr">
+          <div class="gt-head">Step</div><div class="gt-head">Rule applied</div><div class="gt-head">Sequence</div>
+          <div class="gt-accent">start</div><div>characters</div><div>s &middot; l &middot; o &middot; w &middot; e &middot; s &middot; t</div>
+          <div class="gt-accent">1</div><div>e + s &rarr; es</div><div>s &middot; l &middot; o &middot; w &middot; <strong>es</strong> &middot; t</div>
+          <div class="gt-accent">2</div><div>es + t &rarr; est</div><div>s &middot; l &middot; o &middot; w &middot; <strong>est</strong></div>
+          <div class="gt-accent">3</div><div>l + o &rarr; lo</div><div>s &middot; <strong>lo</strong> &middot; w &middot; est</div>
+        </div>
+        <div class="callout"><span class="label">The rule</span>Apply the merges in learned (priority) order, not by scanning for the longest piece. A character with no matching rule, here <code>s</code> and <code>w</code>, simply stays its own token. Characters are the floor, so a word never seen in training still tokenizes and is never out of vocabulary.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Result</span><code>slowest</code> becomes <code>s &middot; lo &middot; w &middot; est</code>, four tokens. There is no <code>low</code> token because no rule ever creates one; the tokenizer can only build the pieces its merges define.</div>
+      </div>
+    </section>
+
     <!-- 7. one word != one token (ENRICHED) -->
     <section>
       <h2><span class="eyebrow">Tokens</span>One word is not one token</h2>
