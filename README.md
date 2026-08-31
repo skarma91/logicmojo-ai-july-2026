@@ -38,7 +38,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [Suggested reading](modules/module-3-nlp-to-transformers/suggested_reading_list/)
 
 ### Module 4: LLMs and GenAI
-- 4.1 Working with LLMs (upcoming)
+- [4.1 Working with LLMs](modules/module-4-llms-genai/01-working-with-llms/)
 - 4.2 Prompt engineering for production (upcoming)
 - 4.3 Structured outputs and tool calling (upcoming)
 - 4.4 Embeddings and vector databases (upcoming)

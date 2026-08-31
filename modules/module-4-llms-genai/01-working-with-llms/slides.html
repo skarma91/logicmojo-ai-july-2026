@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.1 - Working with LLMs</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.1</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.1</span>
+      <h1>Working with LLMs</h1>
+      <p class="lead">Stop treating the model as a chat box. Drive it like an engineer: message roles, the three ways to run one, what it costs, and how to see what it is doing.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Messages and roles<span class="step-note">system, user, assistant, and why the system prompt matters.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Tokens and cost<span class="step-note">You pay per token. One formula, three price tiers.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Three ways to run a model<span class="step-note">Local, hosted-open, frontier, and how to choose.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">See what it does<span class="step-note">print gives way to logging, and a Streamlit front end.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The build</span>Everything after this (RAG, agents, the capstone) calls an LLM. Today sets the habits the whole course reuses.</div>
+            <div class="pill"><span class="pill-tag">Carries forward from 3.5</span>Temperature and decoding return here as a knob you set on every call.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Messages are a list -->
+    <section>
+      <h2><span class="eyebrow">The interface</span>A chat model reads a list of messages</h2>
+      <div class="body">
+        <p class="stmt">A <strong>prompt</strong> is everything you send the model for one turn. A <strong>chat model</strong> is not a new kind of network: it is a base model that was instruction-tuned and aligned (the three stages from class 3.5, From models to LLMs), which is what makes it follow roles and answer instead of just continuing text. It takes an ordered list of messages, each tagged with a role, and writes the next assistant turn.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:360px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="20" width="560" height="52" rx="9" fill="#eef2ff" stroke="#6366f1"/>
+            <text x="34" y="42" font-size="13" font-weight="700" fill="#4338ca">system</text>
+            <text x="34" y="62" font-size="13" fill="#3f4a63">"You are a concise support agent for an accounting app."</text>
+
+            <rect x="20" y="86" width="560" height="46" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+            <text x="34" y="106" font-size="13" font-weight="700" fill="#047857">user</text>
+            <text x="34" y="124" font-size="13" fill="#3f4a63">"How do I export invoices to CSV?"</text>
+
+            <rect x="20" y="146" width="560" height="46" rx="9" fill="#fff7ed" stroke="#f59e0b"/>
+            <text x="34" y="166" font-size="13" font-weight="700" fill="#b45309">assistant</text>
+            <text x="34" y="184" font-size="13" fill="#3f4a63">"Open Sales, then Invoices, select rows, choose Export to CSV."</text>
+
+            <rect x="20" y="206" width="560" height="46" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+            <text x="34" y="226" font-size="13" font-weight="700" fill="#047857">user</text>
+            <text x="34" y="244" font-size="13" fill="#3f4a63">"And to PDF?"</text>
+
+            <line x1="600" y1="150" x2="660" y2="150" stroke="#2563eb" stroke-width="2.5" marker-end="url(#a41)"/>
+            <rect x="662" y="104" width="224" height="86" rx="10" fill="#1e293b"/>
+            <text x="774" y="134" text-anchor="middle" font-size="14" font-weight="700" fill="#ffffff">the model</text>
+            <text x="774" y="156" text-anchor="middle" font-size="12" fill="#cbd5e1">reads all of it, writes</text>
+            <text x="774" y="172" text-anchor="middle" font-size="12" fill="#cbd5e1">the next assistant turn</text>
+            <defs><marker id="a41" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The whole list is the input</span>Each call resends the full conversation. The model keeps no state between calls, so the message list is its only memory. Agents rely on this heavily (Module 5, AI agents).</div>
+      </div>
+    </section>
+
+    <!-- 4. Roles decoded -->
+    <section>
+      <h2><span class="eyebrow">Roles</span>Three roles, three jobs</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.3fr 2.2fr">
+          <div class="gt-head">Role</div><div class="gt-head">Who is speaking</div><div class="gt-head">What it is for</div>
+          <div class="gt-accent">system</div><div>you, the developer</div><div>Sets the model's job, tone, and rules for the whole conversation. Set once, up front.</div>
+          <div class="gt-accent">user</div><div>the end user</div><div>The actual request or question on this turn.</div>
+          <div class="gt-accent">assistant</div><div>the model</div><div>The model's replies. You also replay past assistant turns so it remembers what it said.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why replay the assistant turns</span>Since the model is stateless, prior assistant messages are how it "remembers" its own earlier answers in a multi-turn chat. Leave them out and it loses the thread.</div>
+      </div>
+    </section>
+
+    <!-- 5. System prompt is not decoration -->
+    <section>
+      <h2><span class="eyebrow">The system prompt</span>Same question, two system prompts</h2>
+      <div class="body">
+        <p class="stmt">The system prompt is the strongest control you have. Hold the user message fixed, change only the system prompt, and the answer changes shape completely.</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="label">system A</div>
+            <p style="font-size:0.82em; margin:6px 0">"You are a terse expert. One sentence, no pleasantries."</p>
+            <div class="label" style="color:#047857">user (same)</div>
+            <p style="font-size:0.82em; margin:6px 0">"Explain what an invoice is."</p>
+            <div style="border-top:1px dashed #cbd5e1; margin:8px 0"></div>
+            <p style="font-size:0.82em; margin:0; color:#3f4a63"><strong>Reply:</strong> "A bill a seller issues to a buyer listing goods, amounts, and payment terms."</p>
+          </div>
+          <div class="card">
+            <div class="label">system B</div>
+            <p style="font-size:0.82em; margin:6px 0">"You are a friendly tutor for absolute beginners. Use an everyday analogy."</p>
+            <div class="label" style="color:#047857">user (same)</div>
+            <p style="font-size:0.82em; margin:6px 0">"Explain what an invoice is."</p>
+            <div style="border-top:1px dashed #cbd5e1; margin:8px 0"></div>
+            <p style="font-size:0.82em; margin:0; color:#3f4a63"><strong>Reply:</strong> "Think of a restaurant check: it lists what you ordered and what you owe. An invoice is that check, for a business sale."</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Misconception, corrected</span>"The system prompt is decoration." It is not. It shapes tone, format, and behavior on every turn, and it is where you set the rules of the task.</div>
+      </div>
+    </section>
+
+    <!-- 6. Temperature + streaming -->
+    <section>
+      <h2><span class="eyebrow">Two knobs</span>Temperature and streaming</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Temperature (from class 3.5, decoding) sets randomness. Low is focused and repeatable; high is varied and creative. Set it per task: near 0 for extraction, higher for brainstorming.</p>
+            <p class="stmt"><strong>Streaming</strong> returns tokens as they are generated instead of waiting for the whole answer. Same result, but the user sees words appear immediately, which feels far more responsive.</p>
+            <div class="callout"><span class="label">Temperature, concretely</span>Prompt: "Name a budgeting app." At \( T = 0.2 \) you get the same safe pick almost every run ("BudgetWise"). At \( T = 1.0 \) it varies run to run ("PennyPilot", "CashCompass", "MintLedger"). Same model, same prompt, different randomness.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="16" y="24" font-size="12" font-weight="700" fill="#be123c">no streaming</text>
+              <rect x="16" y="34" width="308" height="30" rx="6" fill="#fee2e2" stroke="#be123c"/>
+              <text x="170" y="53" text-anchor="middle" font-size="11.5" fill="#7f1d1d">wait 4s ... then the whole answer at once</text>
+              <text x="16" y="104" font-size="12" font-weight="700" fill="#047857">streaming</text>
+              <rect x="16" y="114" width="70" height="30" rx="6" fill="#dcfce7" stroke="#047857"/><text x="51" y="133" text-anchor="middle" font-size="11" fill="#065f46">Open</text>
+              <rect x="92" y="114" width="70" height="30" rx="6" fill="#dcfce7" stroke="#047857"/><text x="127" y="133" text-anchor="middle" font-size="11" fill="#065f46">Sales,</text>
+              <rect x="168" y="114" width="70" height="30" rx="6" fill="#dcfce7" stroke="#047857"/><text x="203" y="133" text-anchor="middle" font-size="11" fill="#065f46">then</text>
+              <rect x="244" y="114" width="80" height="30" rx="6" fill="#dcfce7" stroke="#047857"/><text x="284" y="133" text-anchor="middle" font-size="11" fill="#065f46">Invoices</text>
+              <text x="16" y="170" font-size="11" fill="#6b7793">tokens appear one by one, left to right</text>
+              <line x1="16" y1="182" x2="324" y2="182" stroke="#94a3b8" marker-end="url(#a41b)"/>
+              <text x="300" y="200" font-size="10.5" fill="#6b7793">time</text>
+              <defs><marker id="a41b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#94a3b8"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Cost formula -->
+    <section>
+      <h2><span class="eyebrow">Cost</span>You pay per token, both directions</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Providers bill by the token, and they charge separately for what you send and what you get back:</p>
+        <p style="text-align:center; margin:14px 0">$$ \text{cost} \;=\; \underbrace{n_{\text{in}} \cdot p_{\text{in}}}_{\text{your prompt}} \;+\; \underbrace{n_{\text{out}} \cdot p_{\text{out}}}_{\text{the answer}} $$</p>
+        <div class="grid-table" style="grid-template-columns: 0.7fr 2.3fr">
+          <div class="gt-head">Symbol</div><div class="gt-head">In plain words</div>
+          <div class="gt-accent">\( n_{\text{in}} \)</div><div>number of input tokens: the system prompt plus the whole message list you send.</div>
+          <div class="gt-accent">\( n_{\text{out}} \)</div><div>number of output tokens the model generates in its reply.</div>
+          <div class="gt-accent">\( p_{\text{in}}, p_{\text{out}} \)</div><div>the price per token for input and for output. Output usually costs more than input.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Read it aloud</span>"Pay for every token I send, plus every token it writes back." This is why a long system prompt resent on every turn quietly increases the cost, and why the context window is a budget.</div>
+      </div>
+    </section>
+
+    <!-- 8. Cost across tiers -->
+    <section>
+      <h2><span class="eyebrow">Cost</span>The same call, three price tiers</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">One request of 1,500 input and 500 output tokens. Prices are illustrative (they change often); the ratio between tiers is the lesson.</p>
+        <div class="grid-table" style="grid-template-columns: 1.4fr 1fr 1fr 1fr">
+          <div class="gt-head">Tier</div><div class="gt-head">$ / 1M in</div><div class="gt-head">$ / 1M out</div><div class="gt-head">this call</div>
+          <div class="gt-accent">Local (Ollama)</div><div>0</div><div>0</div><div>$0.00</div>
+          <div class="gt-accent">Hosted open (Groq)</div><div>~0.05</div><div>~0.08</div><div>~$0.0001</div>
+          <div class="gt-accent">Frontier API</div><div>~2.50</div><div>~10.00</div><div>~$0.009</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">How "this call" is computed</span>Plug the token counts into the formula. Frontier: \( \frac{1500}{10^6} \times 2.50 + \frac{500}{10^6} \times 10.00 = 0.00375 + 0.005 = \$0.00875 \), rounded to about $0.009. The other rows use the same arithmetic with their prices.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">The gap is real</span>The frontier call here costs roughly 90 times the hosted-open one, and the local call is free. At one request that is nothing. At a million requests a day it decides whether your product is viable.</div>
+      </div>
+    </section>
+
+    <!-- 9. Three ways overview -->
+    <section>
+      <h2><span class="eyebrow">Where it runs</span>Three ways to run an LLM</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:400px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="18" y="24" width="272" height="258" rx="14" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+            <text x="154" y="56" text-anchor="middle" font-size="17" font-weight="800" fill="#047857">Local</text>
+            <text x="154" y="78" text-anchor="middle" font-size="12" fill="#065f46">Ollama, on your machine</text>
+            <line x1="40" y1="92" x2="268" y2="92" stroke="#a7f3d0"/>
+            <text x="40" y="122" font-size="12.5" fill="#3f4a63">Free to run</text>
+            <text x="40" y="150" font-size="12.5" fill="#3f4a63">Private: nothing leaves</text>
+            <text x="40" y="178" font-size="12.5" fill="#3f4a63">Bound by your hardware</text>
+            <line x1="40" y1="212" x2="268" y2="212" stroke="#a7f3d0"/>
+            <text x="40" y="242" font-size="12.5" font-weight="700" fill="#047857">Best for development</text>
+
+            <rect x="314" y="24" width="272" height="258" rx="14" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="450" y="56" text-anchor="middle" font-size="17" font-weight="800" fill="#1d4ed8">Hosted open</text>
+            <text x="450" y="78" text-anchor="middle" font-size="12" fill="#1e40af">Groq free tier, and others</text>
+            <line x1="336" y1="92" x2="564" y2="92" stroke="#bfdbfe"/>
+            <text x="336" y="122" font-size="12.5" fill="#3f4a63">Very fast</text>
+            <text x="336" y="150" font-size="12.5" fill="#3f4a63">Bigger open models</text>
+            <text x="336" y="178" font-size="12.5" fill="#3f4a63">Data leaves the box</text>
+            <line x1="336" y1="212" x2="564" y2="212" stroke="#bfdbfe"/>
+            <text x="336" y="242" font-size="12.5" font-weight="700" fill="#1d4ed8">Best for scale and speed</text>
+
+            <rect x="610" y="24" width="272" height="258" rx="14" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+            <text x="746" y="56" text-anchor="middle" font-size="17" font-weight="800" fill="#6d28d9">Frontier API</text>
+            <text x="746" y="78" text-anchor="middle" font-size="12" fill="#5b21b6">OpenAI, Google Gemini, Anthropic</text>
+            <line x1="632" y1="92" x2="860" y2="92" stroke="#e9d5ff"/>
+            <text x="632" y="122" font-size="12.5" fill="#3f4a63">Top quality</text>
+            <text x="632" y="150" font-size="12.5" fill="#3f4a63">Pay per token</text>
+            <text x="632" y="178" font-size="12.5" fill="#3f4a63">Data leaves the box</text>
+            <line x1="632" y1="212" x2="860" y2="212" stroke="#e9d5ff"/>
+            <text x="632" y="242" font-size="12.5" font-weight="700" fill="#6d28d9">Best when quality must win</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9b. In practice -->
+    <section>
+      <h2><span class="eyebrow">The reality</span>What that table leaves out</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The three tiers are a starting frame, not the full decision. In a real organization, cost is only one axis among several.</p>
+        <div class="callout"><span class="label">Vendor relationships often decide it</span>Many companies standardize on one frontier vendor (OpenAI or Anthropic) under a contract or partnership, and use it everywhere for consistency, support, security review, and compliance, even when a cheaper model would do. Procurement and data agreements can matter more than the per-token price.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Local is for building, not shipping</span>Running on your laptop is perfect for development and experiments, but it is not a product. A real product must be hosted so it is always on, reachable, and able to serve many users at once.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Self-hosting is its own job</span>"Open weights" is not "free to serve." Hosting an open model yourself means GPUs or a serving platform, autoscaling, latency budgets, uptime, security, and an ops bill. That is why a hosted API is often the pragmatic choice even for open models.</div>
+      </div>
+    </section>
+
+    <!-- 10. Tiers compared -->
+    <section>
+      <h2><span class="eyebrow">Where it runs</span>The three tiers, side by side</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 1fr 1fr 1fr">
+          <div class="gt-head"></div><div class="gt-head">Local (Ollama)</div><div class="gt-head">Hosted open (Groq)</div><div class="gt-head">Frontier API</div>
+          <div class="gt-accent">Cost</div><div>free</div><div>free tier, then cheap</div><div>highest</div>
+          <div class="gt-accent">Speed</div><div>your hardware</div><div>very fast</div><div>fast</div>
+          <div class="gt-accent">Privacy</div><div>stays on device</div><div>leaves device</div><div>leaves device</div>
+          <div class="gt-accent">Capability</div><div>small to mid models</div><div>mid to large open</div><div>the strongest</div>
+          <div class="gt-accent">Setup</div><div>install and pull</div><div>an API key</div><div>an API key plus a card</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">In this course</span>Our code wrapper routes to three providers: Ollama (local, the default), Groq (hosted open, free tier), and Google Gemini (a hosted cloud API, free tier). We reach for a top-end frontier model only where a task genuinely needs it.</div>
+      </div>
+    </section>
+
+    <!-- 11. Decision rule -->
+    <section>
+      <h2><span class="eyebrow">Choosing</span>The decision rule, said plainly</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:360px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="30" y="120" width="150" height="56" rx="10" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+            <text x="105" y="145" text-anchor="middle" font-size="13" font-weight="700" fill="#047857">Start on local</text>
+            <text x="105" y="163" text-anchor="middle" font-size="11" fill="#065f46">(Ollama)</text>
+
+            <line x1="180" y1="148" x2="250" y2="148" stroke="#2563eb" stroke-width="2" marker-end="url(#a41c)"/>
+            <polygon points="250,118 340,148 250,178 160,148" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" transform="translate(90,0)"/>
+            <text x="340" y="144" text-anchor="middle" font-size="11.5" fill="#1e40af">Need a bigger</text>
+            <text x="340" y="159" text-anchor="middle" font-size="11.5" fill="#1e40af">model or speed?</text>
+
+            <line x1="430" y1="148" x2="500" y2="148" stroke="#2563eb" stroke-width="2" marker-end="url(#a41c)"/>
+            <text x="465" y="140" text-anchor="middle" font-size="10.5" fill="#047857">yes</text>
+            <rect x="500" y="120" width="150" height="56" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="575" y="145" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">Move to Groq</text>
+            <text x="575" y="163" text-anchor="middle" font-size="11" fill="#1e40af">(hosted open)</text>
+
+            <line x1="650" y1="148" x2="720" y2="148" stroke="#7c3aed" stroke-width="2" marker-end="url(#a41d)"/>
+            <text x="685" y="104" text-anchor="middle" font-size="10.5" fill="#6d28d9">quality</text>
+            <text x="685" y="116" text-anchor="middle" font-size="10.5" fill="#6d28d9">still short?</text>
+            <rect x="720" y="120" width="150" height="56" rx="10" fill="#faf5ff" stroke="#7c3aed" stroke-width="2"/>
+            <text x="795" y="145" text-anchor="middle" font-size="13" font-weight="700" fill="#6d28d9">Frontier API</text>
+            <text x="795" y="163" text-anchor="middle" font-size="11" fill="#5b21b6">(sparingly)</text>
+
+            <text x="340" y="205" text-anchor="middle" font-size="10.5" fill="#6b7793">no: stay local</text>
+            <defs>
+              <marker id="a41c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker>
+              <marker id="a41d" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#7c3aed"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The habit</span>Default to the cheapest tier that clears the bar. Move up only when a concrete need (size, speed, or quality) forces you, not by reflex.</div>
+      </div>
+    </section>
+
+    <!-- 12. Not the biggest -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>Not always the biggest model</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">"Always use the most capable model" feels safe but is usually incorrect. The largest model is slower, more expensive, and often no better on an easy task.</p>
+            <p class="stmt">Classifying a message, extracting a field, or answering an FAQ rarely needs a frontier model. Match the model to the task: a simple, high-volume task does not need the largest model.</p>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="170" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#3f4a63">Task: classify a support message</text>
+              <rect x="120" y="30" width="12" height="12" fill="#10b981"/><text x="137" y="40" font-size="10.5" fill="#3f4a63">small</text>
+              <rect x="196" y="30" width="12" height="12" fill="#7c3aed"/><text x="213" y="40" font-size="10.5" fill="#3f4a63">frontier</text>
+              <line x1="40" y1="192" x2="320" y2="192" stroke="#94a3b8"/>
+              <rect x="70" y="96" width="34" height="96" fill="#10b981"/>
+              <rect x="110" y="90" width="34" height="102" fill="#7c3aed"/>
+              <text x="107" y="210" text-anchor="middle" font-size="11.5" fill="#3f4a63">Quality</text>
+              <text x="107" y="226" text-anchor="middle" font-size="10" fill="#6b7793">about the same</text>
+              <rect x="210" y="172" width="34" height="20" fill="#10b981"/>
+              <rect x="250" y="86" width="34" height="106" fill="#7c3aed"/>
+              <text x="247" y="210" text-anchor="middle" font-size="11.5" fill="#3f4a63">Cost</text>
+              <text x="247" y="226" text-anchor="middle" font-size="10" fill="#6b7793">many times higher</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. print vs logging -->
+    <section>
+      <h2><span class="eyebrow">Observability</span>From print to logging</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A stray <code>print</code> is fine for a toy. Real systems use the <code>logging</code> module: leveled, timestamped, and switchable without touching the code. Seed the habit now, because agents (Module 5) are almost impossible to debug without it.</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="label" style="color:#be123c">print</div>
+            <p style="font-size:0.82em; margin:6px 0; color:#3f4a63">One firehose. No timestamps, no severity, no off switch. You comment lines out and back in forever.</p>
+          </div>
+          <div class="card">
+            <div class="label" style="color:#047857">logging</div>
+            <p style="font-size:0.82em; margin:6px 0; color:#3f4a63">Levels let you turn detail up or down: <strong>DEBUG</strong> (everything), <strong>INFO</strong> (normal flow), <strong>WARNING</strong>, <strong>ERROR</strong>. Set the threshold once; ship at INFO, debug at DEBUG.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Concretely for LLM calls</span>Log the provider, model, token counts, cost, and latency of every call at INFO. When something misbehaves, that record is the difference between a five-minute fix and an afternoon lost.</div>
+      </div>
+    </section>
+
+    <!-- 14. Streamlit primer -->
+    <section>
+      <h2><span class="eyebrow">Front end in 5 minutes</span>Streamlit, just enough</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Streamlit turns a Python script into a web app with no HTML. A handful of calls covers today's build; we return to it in the capstone.</p>
+        <pre class="code-lg"><code class="language-python">import streamlit as st
+
+st.title("Ask the model")
+prompt = st.text_input("Your question")      # a text box
+if st.button("Send"):                        # a button
+    answer = ask_llm(prompt)                 # your wrapper (below)
+    st.write(answer)                         # render text on the page</code></pre>
+        <div class="callout"><span class="label">Run it</span>Save as <code>app.py</code> and run <code>streamlit run app.py</code>. The page reruns top to bottom on every interaction, which is the one Streamlit idea to keep in mind.</div>
+      </div>
+    </section>
+
+    <!-- 15. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>A three-tier wrapper with a provider switch</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">One function, one argument, three backends. Flip <code>provider</code> to route the same messages to Ollama, Groq, or Gemini, and log tokens and cost on every call.</p>
+            <ul class="tight">
+              <li>One <code>chat(messages, provider)</code> entry point.</li>
+              <li>Keys read from a <code>.env</code> file, never hardcoded.</li>
+              <li>Each call logs provider, tokens, cost, and latency at INFO.</li>
+              <li>A tiny Streamlit page in front of it.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="104" y="14" width="132" height="44" rx="9" fill="#eef2ff" stroke="#6366f1"/>
+              <text x="170" y="33" text-anchor="middle" font-size="12" font-weight="700" fill="#4338ca">chat(messages,</text>
+              <text x="170" y="48" text-anchor="middle" font-size="12" font-weight="700" fill="#4338ca">provider)</text>
+              <line x1="170" y1="58" x2="170" y2="84" stroke="#2563eb" stroke-width="2" marker-end="url(#a41e)"/>
+              <polygon points="170,84 250,116 170,148 90,116" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+              <text x="170" y="120" text-anchor="middle" font-size="11.5" fill="#1e40af">provider?</text>
+              <rect x="20" y="176" width="90" height="44" rx="9" fill="#ecfdf5" stroke="#10b981"/><text x="65" y="203" text-anchor="middle" font-size="12" fill="#047857">Ollama</text>
+              <rect x="125" y="176" width="90" height="44" rx="9" fill="#eff6ff" stroke="#2563eb"/><text x="170" y="203" text-anchor="middle" font-size="12" fill="#1d4ed8">Groq</text>
+              <rect x="230" y="176" width="90" height="44" rx="9" fill="#faf5ff" stroke="#7c3aed"/><text x="275" y="203" text-anchor="middle" font-size="12" fill="#6d28d9">Gemini</text>
+              <line x1="140" y1="140" x2="70" y2="176" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a41e)"/>
+              <line x1="170" y1="148" x2="170" y2="176" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a41e)"/>
+              <line x1="200" y1="140" x2="270" y2="176" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#a41f)"/>
+              <defs>
+                <marker id="a41e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+                <marker id="a41f" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7c3aed"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Wrap / micro -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Structure a call as a message list with a deliberate system prompt.</li>
+              <li>Estimate the cost of a call and pick the right price tier.</li>
+              <li>Route one wrapper across Ollama, Groq, and Gemini.</li>
+              <li>Log every call so you can see what happened.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Build the Streamlit wrapper with a provider switch and per-call cost logging. Send the same prompt through two tiers and compare tokens, cost, and latency.</p>
+            <div class="callout"><span class="label">Next, class 4.2</span>Prompt engineering for production: few-shot, decomposition, and prompts you can version and test.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
