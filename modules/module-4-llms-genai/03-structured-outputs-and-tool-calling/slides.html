@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.3 - Structured outputs and tool calling</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.3</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.3</span>
+      <h1>Structured outputs and tool calling</h1>
+      <p class="lead">A paragraph is for a person. A program needs data it can trust and functions the model can call. This is the substrate every agent stands on.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">JSON mode<span class="step-note">Ask for strict JSON a program can consume.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Pydantic as the contract<span class="step-note">Validate the shape; catch bad output before it spreads.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Validate and retry<span class="step-note">The model does not always return valid JSON.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Tool calling<span class="step-note">How the model asks to run your functions.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The bridge to agents</span>Tool calling is the exact mechanism an agent's loop uses (class 5.1, What is an agent, and class 5.2, Tool calling and ReAct).</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Type hints from class 1.2 (Python core) and the Pydantic cameo from class 1.5 (APIs and the web), now load-bearing.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Framing -->
+    <section>
+      <h2><span class="eyebrow">The shift</span>Free text is for humans, JSON is for code</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A friendly paragraph is perfect for a reader and useless to a program. If the next step is code (store it, route it, act on it), the model must return a fixed, parseable shape.</p>
+            <p class="stmt">Two tools do this: <strong>structured output</strong> (JSON validated against a schema) and <strong>tool calling</strong> (the model requests one of your functions with typed arguments).</p>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="82" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#be123c">for a human</text>
+              <rect x="16" y="28" width="132" height="98" rx="8" fill="#fff7ed" stroke="#f59e0b"/>
+              <text x="26" y="52" font-size="9.5" fill="#7c2d12">"Sure! It looks like</text>
+              <text x="26" y="70" font-size="9.5" fill="#7c2d12">they want 3 seats at</text>
+              <text x="26" y="88" font-size="9.5" fill="#7c2d12">high priority. Happy</text>
+              <text x="26" y="106" font-size="9.5" fill="#7c2d12">to help further!"</text>
+              <text x="82" y="150" text-anchor="middle" font-size="10" fill="#be123c">code cannot parse this</text>
+              <text x="238" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">for code</text>
+              <rect x="172" y="28" width="132" height="98" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="182" y="58" font-size="9" fill="#065f46">{ "product": "seats",</text>
+              <text x="182" y="80" font-size="9" fill="#065f46">&#160;&#160;"quantity": 3,</text>
+              <text x="182" y="102" font-size="9" fill="#065f46">&#160;&#160;"priority": "high" }</text>
+              <text x="238" y="150" text-anchor="middle" font-size="10" fill="#047857">one field access reads it</text>
+              <text x="160" y="182" text-anchor="middle" font-size="11.5" fill="#3f4a63">same information, one shape a machine can use</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. JSON mode -->
+    <section>
+      <h2><span class="eyebrow">JSON mode</span>Ask for strict JSON, get parseable data</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Most providers offer a JSON mode: you request JSON, and the model constrains its output to valid JSON syntax. That removes the chatty preamble and trailing prose that break <code>json.loads</code>.</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="label" style="color:#be123c">plain request</div>
+            <p style="font-size:0.8em; margin:6px 0; color:#3f4a63">"Extract product and quantity."</p>
+            <p style="font-size:0.8em; margin:6px 0; color:#7f1d1d">"Sure, they want 3 seats: <code>{...}</code>" &rarr; json.loads fails on the preamble</p>
+          </div>
+          <div class="card">
+            <div class="label" style="color:#047857">JSON mode on</div>
+            <p style="font-size:0.8em; margin:6px 0; color:#3f4a63">"Extract product and quantity. Respond as JSON."</p>
+            <p style="font-size:0.8em; margin:6px 0; color:#047857"><code>{"product":"seats","quantity":3}</code> &rarr; parses cleanly</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Necessary, not sufficient</span>JSON mode guarantees valid JSON syntax. It does not guarantee the right fields or types. For that you need a schema, next.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">In practice</span>How you request JSON differs by provider (a flag, a response-format argument, or just the prompt), and local models may not enforce it at all. The validation step you build next is provider-agnostic, so it protects you no matter how the JSON was produced.</div>
+      </div>
+    </section>
+
+    <!-- 5. Pydantic contract -->
+    <section>
+      <h2><span class="eyebrow">The contract</span>A Pydantic model declares the shape</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Define exactly what you expect as a Pydantic model. This is the type-hints habit from class 1.2 (Python core), now enforced at runtime: the model's JSON must match, or you find out immediately.</p>
+        <pre class="code-lg"><code class="language-python">from pydantic import BaseModel
+from typing import Literal
+
+class Order(BaseModel):
+    product: str
+    quantity: int
+    priority: Literal["low", "normal", "high"]   # only these three allowed</code></pre>
+        <div class="callout"><span class="label">What this buys you</span>Three guarantees in one place: the fields that must exist, their types, and the allowed values. The schema is the single source of truth for what "a valid order" means.</div>
+      </div>
+    </section>
+
+    <!-- 6. Valid -->
+    <section>
+      <h2><span class="eyebrow">Validation</span>A good response passes cleanly</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Feed the model's JSON to the schema. If it fits, you get back a typed Python object with real attributes, not a raw dict you have to second-guess.</p>
+            <div class="callout"><span class="label">After this line</span><code>order.quantity</code> is guaranteed to be an <code>int</code>, and <code>order.priority</code> is one of the three allowed strings. Downstream code can trust it.</div>
+          </div>
+          <pre class="code-lg"><code class="language-python">raw = '{"product": "seats", "quantity": 3, "priority": "high"}'
+
+order = Order.model_validate_json(raw)
+print(order.product)     # seats
+print(order.quantity)    # 3  (an int, not "3")
+print(order.priority)    # high</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Malformed -->
+    <section>
+      <h2><span class="eyebrow">Validation</span>A bad response raises a clear error</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <pre class="code-lg"><code class="language-python">bad = '{"product": "seats", "quantity": "three", "priority": "high"}'
+
+try:
+    Order.model_validate_json(bad)
+except ValidationError as e:
+    print(e)
+# quantity: Input should be a valid integer,
+#   unable to parse string as an integer</code></pre>
+          <div>
+            <p class="stmt" style="margin-top:0">Here <code>quantity</code> came back as the word "three". Without a schema that flows downstream and crashes something far away. With one, it fails right here, with a message that names the field and the problem.</p>
+            <div class="callout"><span class="label">The point</span>Fail early, fail loud, fail where you can see it. Validation turns a silent, distant bug into an obvious local one.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Retry -->
+    <section>
+      <h2><span class="eyebrow">Reliability</span>It does not always return valid JSON</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">"The model always returns valid JSON" is false. It sometimes adds a stray comment, drops a field, or mistypes a value. The reliable pattern is validate, and on failure, retry with the error fed back.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:260px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="80" width="150" height="46" rx="9" fill="#eef2ff" stroke="#6366f1"/><text x="95" y="107" text-anchor="middle" font-size="12" fill="#4338ca">ask for JSON</text>
+            <line x1="170" y1="103" x2="215" y2="103" stroke="#2563eb" stroke-width="2" marker-end="url(#a43)"/>
+            <polygon points="215,73 300,103 215,133 130,103" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6" transform="translate(85,0)"/>
+            <text x="300" y="100" text-anchor="middle" font-size="11" fill="#1e40af">validates?</text>
+            <text x="300" y="115" text-anchor="middle" font-size="9.5" fill="#1e40af">(Pydantic)</text>
+            <line x1="385" y1="103" x2="440" y2="103" stroke="#047857" stroke-width="2" marker-end="url(#a43g)"/>
+            <text x="412" y="95" text-anchor="middle" font-size="10" fill="#047857">yes</text>
+            <rect x="445" y="80" width="150" height="46" rx="9" fill="#ecfdf5" stroke="#10b981"/><text x="520" y="107" text-anchor="middle" font-size="12" fill="#047857">typed object</text>
+            <line x1="300" y1="133" x2="300" y2="170" stroke="#be123c" stroke-width="2" marker-end="url(#a43r)"/>
+            <text x="330" y="158" font-size="10" fill="#be123c">no: send the error back</text>
+            <rect x="620" y="150" width="250" height="40" rx="9" fill="#fef2f2" stroke="#be123c"/>
+            <text x="745" y="175" text-anchor="middle" font-size="11" fill="#7f1d1d">"quantity must be an int, fix it" &rarr; retry</text>
+            <line x1="620" y1="170" x2="330" y2="170" stroke="#be123c" stroke-width="1.4" stroke-dasharray="4 3"/>
+            <defs>
+              <marker id="a43" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker>
+              <marker id="a43g" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#10b981"/></marker>
+              <marker id="a43r" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#be123c"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Cap the retries</span>Two or three attempts, then give up and report. A retry loop without a cap is a runaway cost waiting to happen (a failure mode we harden in Module 5).</div>
+      </div>
+    </section>
+
+    <!-- 9. Tool calling concept -->
+    <section>
+      <h2><span class="eyebrow">Tool calling</span>The model asks to run a function</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A model cannot look up a live invoice or send an email on its own. Tool calling is how it asks: instead of answering, it emits a structured request to call one of the functions you offered, with arguments filled in.</p>
+            <p class="stmt">Your code runs the function and hands the result back. The model never runs anything itself; it only requests, and you stay in control of what actually executes.</p>
+          </div>
+          <div class="card">
+            <div class="label">The key inversion</div>
+            <p style="font-size:0.86em; margin:8px 0; color:#3f4a63">Normal call: prompt in, <strong>text</strong> out.</p>
+            <p style="font-size:0.86em; margin:8px 0; color:#3f4a63">Tool call: prompt in, <strong>a request to run a function</strong> out, which your code fulfills and feeds back.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Tool schema -->
+    <section>
+      <h2><span class="eyebrow">Tool calling</span>Describe a tool as a schema</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">You tell the model what tools exist by describing each one: a name, a plain-language description of when to use it, and a typed parameter schema. Same idea as the Pydantic contract, now for a function's inputs.</p>
+        <pre class="code-lg"><code class="language-json">{
+  "name": "get_invoice_status",
+  "description": "Look up the current status of an invoice by its id.",
+  "parameters": {
+    "type": "object",
+    "properties": { "invoice_id": { "type": "string" } },
+    "required": ["invoice_id"]
+  }
+}</code></pre>
+        <div class="callout"><span class="label">The description is not decoration</span>The model chooses a tool from these descriptions. A vague one gets called at the wrong time; a precise one gets called correctly. Write them like documentation.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Tools cost tokens too</span>Every tool's name, description, and parameter schema is sent with the prompt on <em>each</em> call, so it counts against the token budget and the cost (class 4.1, Working with LLMs). A few well-chosen tools keep prompts lean; offering dozens of rarely-used tools inflates every request and can exhaust the context window quickly.</div>
+      </div>
+    </section>
+
+    <!-- 11. Three-step loop -->
+    <section>
+      <h2><span class="eyebrow">Tool calling</span>The three-step round trip</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:340px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="40" y="100" width="170" height="56" rx="10" fill="#1e293b"/>
+            <text x="125" y="125" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">the model</text>
+            <text x="125" y="143" text-anchor="middle" font-size="10.5" fill="#cbd5e1">"What is INV-42's status?"</text>
+
+            <line x1="210" y1="118" x2="330" y2="118" stroke="#2563eb" stroke-width="2" marker-end="url(#a43b)"/>
+            <text x="270" y="108" text-anchor="middle" font-size="10.5" fill="#1e40af">1. emits a request</text>
+            <rect x="330" y="96" width="230" height="46" rx="9" fill="#eff6ff" stroke="#2563eb"/>
+            <text x="445" y="115" text-anchor="middle" font-size="10.5" fill="#1e40af">get_invoice_status(</text>
+            <text x="445" y="131" text-anchor="middle" font-size="10.5" fill="#1e40af">invoice_id="INV-42")</text>
+
+            <line x1="445" y1="142" x2="445" y2="185" stroke="#2563eb" stroke-width="2" marker-end="url(#a43b)"/>
+            <text x="600" y="168" text-anchor="middle" font-size="10.5" fill="#3f4a63">2. your code runs the tool</text>
+            <rect x="330" y="188" width="230" height="44" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+            <text x="445" y="215" text-anchor="middle" font-size="11.5" fill="#047857">returns "paid"</text>
+
+            <line x1="330" y1="210" x2="215" y2="210" stroke="#10b981" stroke-width="2" marker-end="url(#a43c)"/>
+            <text x="270" y="200" text-anchor="middle" font-size="10.5" fill="#047857">3. result back</text>
+            <rect x="40" y="188" width="170" height="44" rx="9" fill="#1e293b"/>
+            <text x="125" y="207" text-anchor="middle" font-size="10.5" fill="#fff">"Invoice INV-42</text>
+            <text x="125" y="223" text-anchor="middle" font-size="10.5" fill="#fff">is paid."</text>
+            <defs>
+              <marker id="a43b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker>
+              <marker id="a43c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#10b981"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Read it</span>The model requests, your code executes and returns, the model writes the final answer using the result. That round trip, run in a loop, is an agent.</div>
+      </div>
+    </section>
+
+    <!-- 12. Bridge -->
+    <section>
+      <h2><span class="eyebrow">Why it matters</span>This is the agent loop, in miniature</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">An agent is nothing more than this round trip, repeated: the model looks at the goal and the tools, requests one, sees the result, and decides the next request until it can answer.</p>
+            <p class="stmt">Everything in Module 5 is built on what you learned today. Get structured output and tool calling solid and reliable now, and agents become an extension of it rather than a mystery.</p>
+          </div>
+          <div class="card">
+            <div class="label">Today &rarr; Module 5</div>
+            <ul class="tight" style="font-size:0.88em">
+              <li>Tool schema &rarr; the agent's tool registry (5.1).</li>
+              <li>The round trip &rarr; the ReAct loop (5.2).</li>
+              <li>Validate and retry &rarr; agent reliability rails (5.6).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Validated extraction that survives bad output</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Extract a structured <code>Order</code> from a messy order note, validate it against the Pydantic schema, and handle a deliberately malformed response by catching the error and retrying, then reporting if it still fails.</p>
+            <ul class="tight">
+              <li>An <code>Order</code> schema with a typed, constrained field.</li>
+              <li>Parse and validate the model's JSON.</li>
+              <li>Catch a <code>ValidationError</code> and retry with the error fed back.</li>
+              <li>A retry cap, then a clean failure report.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="90" y="16" width="140" height="34" rx="7" fill="#f8fafc" stroke="#94a3b8"/><text x="160" y="38" text-anchor="middle" font-size="11" fill="#3f4a63">messy order note</text>
+              <line x1="160" y1="50" x2="160" y2="76" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a43d)"/>
+              <rect x="80" y="78" width="160" height="34" rx="7" fill="#eff6ff" stroke="#2563eb"/><text x="160" y="100" text-anchor="middle" font-size="11" fill="#1e40af">model &rarr; JSON</text>
+              <line x1="160" y1="112" x2="160" y2="138" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a43d)"/>
+              <polygon points="160,138 240,166 160,194 80,166" fill="#eff6ff" stroke="#2563eb" stroke-width="1.6"/>
+              <text x="160" y="164" text-anchor="middle" font-size="10.5" fill="#1e40af">validate?</text>
+              <text x="160" y="179" text-anchor="middle" font-size="9" fill="#1e40af">retry on fail</text>
+              <line x1="240" y1="166" x2="285" y2="166" stroke="#10b981" stroke-width="1.6" marker-end="url(#a43e)"/>
+              <text x="292" y="170" font-size="16" fill="#047857">&#10003;</text>
+              <defs>
+                <marker id="a43d" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+                <marker id="a43e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#10b981"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Ask for JSON and parse it safely.</li>
+              <li>Declare the expected shape as a Pydantic model.</li>
+              <li>Validate output and catch bad responses at the source.</li>
+              <li>Retry on failure with the error fed back, under a cap.</li>
+              <li>Describe a tool and read a tool-call request.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Return validated JSON for a real extraction task, including handling one malformed case with a retry.</p>
+            <div class="callout"><span class="label">Next, class 4.4</span>Embeddings and vector databases: give the model memory of your documents, the first half of RAG.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
