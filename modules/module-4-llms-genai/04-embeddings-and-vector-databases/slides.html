@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.4 - Embeddings and vector databases</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.4</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.4</span>
+      <h1>Embeddings and vector databases</h1>
+      <p class="lead">The model does not know your documents. This class gives it a searchable memory of them, by turning meaning into vectors and finding the nearest ones. It is the retrieval half of RAG.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Embeddings and chunking<span class="step-note">Meaning as a vector; splitting documents to fit.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Vector databases<span class="step-note">Storing vectors and finding the nearest ones fast.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Metadata filtering<span class="step-note">Restrict a search by source, date, or section.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Hybrid search and top-k<span class="step-note">Blend meaning with keywords; choose how many to fetch.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The base of RAG</span>The retriever you build here is reused in class 4.5 (RAG from scratch) and becomes the agent's first tool in Module 5 (AI agents).</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Meaning as a vector, from class 1.4 (The data stack), class 2.5 (Training in practice), and class 3.1 (Text as data).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Framing -->
+    <section>
+      <h2><span class="eyebrow">The problem</span>Give the model memory of your documents</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">An LLM knows what it read during training. It does not know your company handbook, your product docs, or last week's tickets. Asking it about them gives a confident guess, not an answer.</p>
+            <p class="stmt">The fix is retrieval: keep your documents in a searchable store, find the passages relevant to a question, and hand them to the model. The missing piece is a way to search by <strong>meaning</strong>, also called <strong>semantic search</strong>, rather than by exact words.</p>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="14" y="20" width="130" height="150" rx="10" fill="#1e293b"/>
+              <text x="79" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">the model</text>
+              <text x="79" y="72" text-anchor="middle" font-size="10.5" fill="#cbd5e1">knows the public</text>
+              <text x="79" y="88" text-anchor="middle" font-size="10.5" fill="#cbd5e1">web it trained on</text>
+              <text x="79" y="122" text-anchor="middle" font-size="10.5" fill="#fca5a5">does not know</text>
+              <text x="79" y="138" text-anchor="middle" font-size="10.5" fill="#fca5a5">your documents</text>
+              <rect x="188" y="20" width="118" height="66" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="247" y="45" text-anchor="middle" font-size="11" fill="#047857">your docs</text>
+              <text x="247" y="64" text-anchor="middle" font-size="10" fill="#065f46">handbook, tickets,</text>
+              <text x="247" y="77" text-anchor="middle" font-size="10" fill="#065f46">product help</text>
+              <line x1="188" y1="120" x2="146" y2="120" stroke="#2563eb" stroke-width="2" marker-end="url(#a44)"/>
+              <rect x="188" y="104" width="118" height="34" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="247" y="125" text-anchor="middle" font-size="10.5" fill="#1e40af">retrieve, then feed</text>
+              <text x="160" y="205" text-anchor="middle" font-size="10.5" fill="#6b7793">semantic search (search by meaning)</text>
+              <text x="160" y="221" text-anchor="middle" font-size="10.5" fill="#6b7793">is the missing piece</text>
+              <defs><marker id="a44" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Embedding as a point in meaning space -->
+    <section>
+      <h2><span class="eyebrow">Embeddings</span>Meaning becomes a point in space</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">An <strong>embedding</strong> is a vector that captures the meaning of a piece of text. Texts that mean similar things land near each other; unrelated texts land far apart. Semantic search becomes geometry: find the nearest points to the question.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 270" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:320px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="16" width="600" height="212" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+            <!-- invoice cluster, top-left, labels to the right of dots and clear of each other -->
+            <circle cx="120" cy="70" r="6" fill="#2563eb"/><text x="132" y="74" font-size="11" fill="#1e40af">"export invoices to CSV"</text>
+            <circle cx="150" cy="120" r="6" fill="#2563eb"/><text x="162" y="124" font-size="11" fill="#1e40af">"save invoices as a spreadsheet"</text>
+            <circle cx="128" cy="46" r="7" fill="#be123c"/><text x="140" y="40" font-size="11" font-weight="700" fill="#be123c">query: "download my bills"</text>
+            <path d="M128,46 Q124,58 120,70" stroke="#be123c" stroke-width="1.3" fill="none" stroke-dasharray="3 2"/>
+            <path d="M128,46 Q140,84 150,120" stroke="#be123c" stroke-width="1.3" fill="none" stroke-dasharray="3 2"/>
+            <!-- unrelated points, spread to the right, labels left of dots to avoid the frame edge -->
+            <circle cx="560" cy="86" r="6" fill="#047857"/><text x="548" y="90" font-size="11" text-anchor="end" fill="#065f46">"reconcile the bank account"</text>
+            <circle cx="560" cy="196" r="6" fill="#7c3aed"/><text x="548" y="200" font-size="11" text-anchor="end" fill="#6d28d9">"cancel my subscription"</text>
+            <circle cx="150" cy="196" r="6" fill="#d97706"/><text x="162" y="200" font-size="11" fill="#b45309">"add a second user"</text>
+            <text x="320" y="250" text-anchor="middle" font-size="10.5" fill="#94a3b8">meaning space, shown in 2D (real embeddings have hundreds of dimensions)</text>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Why this is powerful</span>The query "download my bills" shares no words with "export invoices to CSV", yet they sit close because they mean the same thing. Keyword search would miss it; semantic search finds it.</div>
+      </div>
+    </section>
+
+    <!-- 5. Cosine similarity decoded -->
+    <section>
+      <h2><span class="eyebrow">Similarity</span>Cosine similarity, decoded</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">To measure how close two meanings are, measure the angle between their vectors. A small angle means they point the same way, so they mean nearly the same thing.</p>
+            <p style="text-align:center; margin:10px 0">$$ \cos(a, b) \;=\; \frac{a \cdot b}{\lVert a \rVert \; \lVert b \rVert} $$</p>
+            <div class="grid-table" style="grid-template-columns: 0.8fr 2.3fr">
+              <div class="gt-head">Symbol</div><div class="gt-head">In plain words</div>
+              <div class="gt-accent">\( a \cdot b \)</div><div>the dot product (from class 1.4, The data stack): multiply matching components and add them up.</div>
+              <div class="gt-accent">\( \lVert a \rVert \)</div><div>the length of vector \( a \); dividing by both lengths cancels size, leaving only direction.</div>
+            </div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <line x1="30" y1="215" x2="330" y2="215" stroke="#cbd5e1"/>
+              <line x1="170" y1="20" x2="170" y2="235" stroke="#cbd5e1"/>
+              <!-- a and b: close together, small angle, cosine near 1 -->
+              <line x1="170" y1="215" x2="290" y2="70" stroke="#2563eb" stroke-width="2.5" marker-end="url(#av)"/>
+              <text x="296" y="66" font-size="11" fill="#1e40af">a</text>
+              <line x1="170" y1="215" x2="300" y2="120" stroke="#2563eb" stroke-width="2.5" marker-end="url(#av)"/>
+              <text x="306" y="122" font-size="11" fill="#1e40af">b</text>
+              <path d="M214,183 A55 55 0 0 1 205,173" fill="none" stroke="#be123c" stroke-width="1.8"/>
+              <text x="236" y="182" font-size="10.5" fill="#be123c">small angle</text>
+              <!-- c: about a right angle from a, cosine near 0 -->
+              <line x1="170" y1="215" x2="60" y2="110" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ag)"/>
+              <text x="48" y="106" font-size="11" fill="#6b7793">c</text>
+              <text x="40" y="196" font-size="10.5" fill="#6b7793">wide angle</text>
+              <defs>
+                <marker id="av" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker>
+                <marker id="ag" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#94a3b8"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+        <div class="callout"><span class="label">Read it aloud</span>"How aligned are these two meanings, ignoring how long the texts are." The score runs from 1 (same direction) through 0 (unrelated) to -1 (opposite). In the figure, <strong>a</strong> and <strong>b</strong> sit at a small angle, so cosine is near 1 (similar meaning); <strong>a</strong> and <strong>c</strong> are near a right angle, so cosine is near 0 (unrelated).</div>
+      </div>
+    </section>
+
+    <!-- 6. Stores meaning not words -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>It stores meaning, not the words</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">"An embedding stores the text." It does not. It stores a list of numbers, the coordinates of that text in meaning space. Think of it like a map pin: the pin's coordinates tell you <em>where</em> something is and what sits near it, but the coordinates are not the place itself.</p>
+            <div class="callout"><span class="label">Consequence</span>You cannot read a document back out of its embedding, just as you cannot read a street address out of two map coordinates. The vector is for finding; the original text is stored separately, for reading and for feeding to the model.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="14" y="40" width="150" height="52" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="89" y="60" text-anchor="middle" font-size="11" fill="#1e40af">"export invoices</text>
+              <text x="89" y="76" text-anchor="middle" font-size="11" fill="#1e40af">to CSV"</text>
+              <text x="89" y="30" text-anchor="middle" font-size="10.5" fill="#3f4a63">the text (stored to read)</text>
+              <line x1="164" y1="66" x2="196" y2="66" stroke="#2563eb" stroke-width="2" marker-end="url(#a44b)"/>
+              <text x="180" y="56" text-anchor="middle" font-size="9" fill="#6b7793">embed</text>
+              <rect x="198" y="40" width="108" height="52" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="252" y="62" text-anchor="middle" font-size="10.5" fill="#065f46">[0.12, -0.4,</text>
+              <text x="252" y="78" text-anchor="middle" font-size="10.5" fill="#065f46">0.9, ...]</text>
+              <text x="252" y="30" text-anchor="middle" font-size="10.5" fill="#3f4a63">coordinates (to find)</text>
+              <text x="160" y="128" text-anchor="middle" font-size="11" fill="#3f4a63">kept together by an id, used for different jobs</text>
+              <text x="160" y="150" text-anchor="middle" font-size="10.5" fill="#6b7793">vector: find the nearest &#183; text: read and feed the model</text>
+              <defs><marker id="a44b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+        <div class="callout"><span class="label">How an embedding is made</span>A transformer-based <strong>encoder</strong> (class 3.3, The Transformer) reads the passage and pools its per-token outputs into one vector. The all-MiniLM model we use averages them (<strong>mean pooling</strong>); some models instead use the special <code>[CLS]</code> token. Averaging only works because the input is short: these models cap the length (a few hundred tokens) and truncate the rest, and averaging many tokens would blur the meaning. That is exactly why you embed short <strong>chunks</strong>, not whole documents (next slide).</div>
+      </div>
+    </section>
+
+    <!-- 7. Chunking -->
+    <section>
+      <h2><span class="eyebrow">Chunking</span>Split long documents into passages</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">You do not embed a whole 40-page handbook as one vector; its meaning would be an average mush. You split it into <strong>chunks</strong>, small passages, and embed each. Neighboring chunks share a small <strong>overlap</strong>: the same few sentences appear at the end of one chunk and the start of the next, so a sentence sitting on the boundary stays whole in at least one chunk instead of being cut in half and losing its meaning.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 180" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:240px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="20" width="600" height="24" rx="5" fill="#e2e8f0"/>
+            <text x="320" y="37" text-anchor="middle" font-size="11" fill="#475569">one long document</text>
+            <!-- chunk 1: overlap block on its right -->
+            <rect x="30" y="66" width="180" height="30" rx="5" fill="#dbeafe" stroke="#2563eb"/><text x="108" y="86" text-anchor="middle" font-size="10.5" fill="#1e40af">chunk 1</text>
+            <rect x="180" y="66" width="30" height="30" rx="0" fill="#fde68a" stroke="#d97706"/>
+            <!-- chunk 2: overlap block on BOTH ends (shares with 1 on left, with 3 on right) -->
+            <rect x="180" y="104" width="30" height="30" rx="0" fill="#fde68a" stroke="#d97706"/>
+            <rect x="210" y="104" width="180" height="30" rx="5" fill="#dbeafe" stroke="#2563eb"/><text x="300" y="124" text-anchor="middle" font-size="10.5" fill="#1e40af">chunk 2</text>
+            <rect x="390" y="104" width="30" height="30" rx="0" fill="#fde68a" stroke="#d97706"/>
+            <!-- chunk 3 -->
+            <rect x="390" y="66" width="30" height="30" rx="0" fill="#fde68a" stroke="#d97706"/>
+            <rect x="420" y="66" width="180" height="30" rx="5" fill="#dbeafe" stroke="#2563eb"/><text x="510" y="86" text-anchor="middle" font-size="10.5" fill="#1e40af">chunk 3</text>
+            <text x="320" y="164" text-anchor="middle" font-size="10.5" fill="#b45309">yellow = the overlap shared between two neighboring chunks</text>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The trade-off</span>Chunks too small lose context; too large dilute the meaning and cost more tokens. A few hundred words with a small overlap is a common starting point, then tune.</div>
+      </div>
+    </section>
+
+    <!-- 8. Vector DB + indexing -->
+    <section>
+      <h2><span class="eyebrow">Vector database</span>Store the vectors, find the nearest fast</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A vector database stores your embeddings and, given a query vector, returns the nearest ones. The naive way compares the query against every stored vector, one by one. That is fine for thousands, far too slow for millions.</p>
+        <p class="stmt">So it builds an <strong>index</strong>: it groups nearby vectors ahead of time (for example into clusters, or a graph of "who is close to whom"). At query time it visits only the few groups near the query and skips the rest, so it checks a small fraction of the data instead of all of it. This is <em>approximate</em> nearest-neighbor search: a little accuracy traded for a large speed gain.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 170" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:210px" font-family="Segoe UI, Arial, sans-serif">
+            <text x="150" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#be123c">naive: check all N</text>
+            <circle cx="60" cy="60" r="4" fill="#94a3b8"/><circle cx="110" cy="90" r="4" fill="#94a3b8"/><circle cx="160" cy="50" r="4" fill="#94a3b8"/><circle cx="210" cy="100" r="4" fill="#94a3b8"/><circle cx="90" cy="130" r="4" fill="#94a3b8"/><circle cx="180" cy="130" r="4" fill="#94a3b8"/><circle cx="240" cy="60" r="4" fill="#94a3b8"/>
+            <circle cx="150" cy="85" r="5" fill="#be123c"/>
+            <line x1="150" y1="85" x2="60" y2="60" stroke="#fca5a5"/><line x1="150" y1="85" x2="110" y2="90" stroke="#fca5a5"/><line x1="150" y1="85" x2="160" y2="50" stroke="#fca5a5"/><line x1="150" y1="85" x2="210" y2="100" stroke="#fca5a5"/><line x1="150" y1="85" x2="90" y2="130" stroke="#fca5a5"/><line x1="150" y1="85" x2="180" y2="130" stroke="#fca5a5"/><line x1="150" y1="85" x2="240" y2="60" stroke="#fca5a5"/>
+            <text x="490" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">indexed: check one group</text>
+            <circle cx="400" cy="60" r="4" fill="#cbd5e1"/><circle cx="450" cy="90" r="4" fill="#cbd5e1"/><circle cx="560" cy="130" r="4" fill="#cbd5e1"/><circle cx="600" cy="60" r="4" fill="#cbd5e1"/>
+            <ellipse cx="470" cy="80" rx="60" ry="42" fill="#dcfce7" stroke="#10b981" stroke-dasharray="4 3"/>
+            <circle cx="450" cy="70" r="4" fill="#2563eb"/><circle cx="490" cy="95" r="4" fill="#2563eb"/><circle cx="470" cy="55" r="4" fill="#2563eb"/>
+            <circle cx="470" cy="80" r="5" fill="#be123c"/>
+            <line x1="470" y1="80" x2="450" y2="70" stroke="#86efac"/><line x1="470" y1="80" x2="490" y2="95" stroke="#86efac"/><line x1="470" y1="80" x2="470" y2="55" stroke="#86efac"/>
+            <text x="320" y="160" text-anchor="middle" font-size="10.5" fill="#6b7793">query (red) compared to all seven on the left, but only to the near group (green) on the right</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8b. HNSW -->
+    <section>
+      <h2><span class="eyebrow">The common index</span>HNSW: the graph that makes search fast</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The "graph of who is close to whom" has a name: <strong>HNSW</strong> (Hierarchical Navigable Small World), the index most vector databases use by default.</p>
+            <p class="stmt"><strong>Build:</strong> link each vector to its nearest neighbors to form a graph, then stack it in layers. The top layer has few nodes with long-range links (express routes); each lower layer adds more nodes and shorter, local links.</p>
+            <p class="stmt"><strong>Search:</strong> enter at the top, hop to the neighbor closest to the query, drop a layer, and repeat. You touch a handful of nodes, not all N. Like a road atlas: country, then region, then street.</p>
+            <div class="callout"><span class="label">The trade-off and where it lives</span>Approximate: it can miss the true nearest now and then, but recall is very high in practice, tuned by how wide you search. Our class uses flat, exact <code>IndexFlatIP</code> because the corpus is tiny; at scale, FAISS, Chroma, Qdrant, and pgvector default to HNSW.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 280" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- layer separators -->
+              <line x1="16" y1="96" x2="324" y2="96" stroke="#e2e8f0" stroke-dasharray="4 4"/>
+              <line x1="16" y1="184" x2="324" y2="184" stroke="#e2e8f0" stroke-dasharray="4 4"/>
+              <text x="20" y="34" font-size="9.5" fill="#6d28d9" font-weight="700">top: few nodes, long hops</text>
+              <text x="20" y="122" font-size="9.5" fill="#1d4ed8" font-weight="700">middle: denser</text>
+              <text x="20" y="210" font-size="9.5" fill="#047857" font-weight="700">bottom: dense, precise</text>
+
+              <!-- top layer -->
+              <line x1="95" y1="58" x2="250" y2="58" stroke="#c7bde8"/><line x1="180" y1="58" x2="250" y2="58" stroke="#c7bde8"/>
+              <circle cx="95" cy="58" r="6" fill="#10b981"/><circle cx="180" cy="58" r="5" fill="#a78bda"/><circle cx="250" cy="58" r="5" fill="#a78bda"/>
+              <text x="95" y="48" text-anchor="middle" font-size="8.5" fill="#065f46">enter</text>
+
+              <!-- middle layer -->
+              <line x1="70" y1="145" x2="140" y2="145" stroke="#bcd0f5"/><line x1="140" y1="145" x2="205" y2="145" stroke="#bcd0f5"/><line x1="205" y1="145" x2="275" y2="145" stroke="#bcd0f5"/>
+              <circle cx="70" cy="145" r="5" fill="#93b4ef"/><circle cx="140" cy="145" r="6" fill="#2563eb"/><circle cx="205" cy="145" r="5" fill="#93b4ef"/><circle cx="275" cy="145" r="5" fill="#93b4ef"/>
+
+              <!-- bottom layer -->
+              <line x1="55" y1="232" x2="110" y2="232" stroke="#bfe6cf"/><line x1="110" y1="232" x2="165" y2="232" stroke="#bfe6cf"/><line x1="165" y1="232" x2="220" y2="232" stroke="#bfe6cf"/><line x1="220" y1="232" x2="285" y2="232" stroke="#bfe6cf"/>
+              <circle cx="55" cy="232" r="5" fill="#8fd6ab"/><circle cx="110" cy="232" r="5" fill="#8fd6ab"/><circle cx="165" cy="232" r="6" fill="#be123c"/><circle cx="220" cy="232" r="5" fill="#8fd6ab"/><circle cx="285" cy="232" r="5" fill="#8fd6ab"/>
+              <text x="165" y="255" text-anchor="middle" font-size="8.5" fill="#7f1d1d">nearest found</text>
+
+              <!-- descent path -->
+              <line x1="95" y1="64" x2="140" y2="139" stroke="#f59e0b" stroke-width="2" marker-end="url(#hn)"/>
+              <line x1="140" y1="151" x2="165" y2="226" stroke="#f59e0b" stroke-width="2" marker-end="url(#hn)"/>
+              <defs><marker id="hn" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#f59e0b"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Vector DB comparison -->
+    <section>
+      <h2><span class="eyebrow">Choosing a store</span>The vector-store landscape</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">They all store vectors and find nearest neighbors. They differ in whether they are a library or a full database, whether they filter on metadata, and whether they persist.</p>
+        <div class="grid-table" style="grid-template-columns: 1fr 1.5fr 1fr 1.4fr">
+          <div class="gt-head">Tool</div><div class="gt-head">What it is</div><div class="gt-head">Metadata filter</div><div class="gt-head">Best for</div>
+          <div class="gt-accent">FAISS</div><div>a similarity-search library (no server)</div><div>not built in</div><div>learning and fast local prototypes</div>
+          <div class="gt-accent">Chroma</div><div>an embedded database (a local file)</div><div>yes, built in</div><div>small apps and development</div>
+          <div class="gt-accent">Qdrant</div><div>a standalone database (server)</div><div>rich filters</div><div>production and scale</div>
+          <div class="gt-accent">pgvector</div><div>a Postgres extension</div><div>SQL WHERE</div><div>teams already using Postgres</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Our path</span>We use <strong>FAISS</strong> now and in class 4.5 (RAG from scratch) so you see the mechanics with nothing hidden, then move to <strong>Chroma</strong> in class 4.6 (RAG with frameworks) for built-in filtering and persistence.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Self-hosted vs managed</span>FAISS and Chroma run inside your app. <strong>Qdrant</strong> and <strong>pgvector</strong> are self-hosted: your team runs them (a Qdrant server, or a Postgres database with the pgvector extension) and handles scaling and backups. A <strong>managed</strong> service (Pinecone, Weaviate Cloud, Qdrant Cloud) is the same kind of database, but a vendor runs it: you call an API and pay, with no servers to operate. So "managed" is about who runs it, not a different algorithm.</div>
+      </div>
+    </section>
+
+    <!-- 10. Metadata filtering -->
+    <section>
+      <h2><span class="eyebrow">Metadata filtering</span>Combine meaning with hard filters</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Store fields alongside each vector: <code>source</code>, <code>year</code>, <code>section</code>, <code>author</code>. A filtered search then means "the closest passages by meaning, but only those whose fields match this rule."</p>
+        <div class="callout"><span class="label">Worked example</span>Query: "what is our refund policy?" over a corpus where the same wording appears in two documents: <code>{section: "Refunds", year: 2024}</code> and an old <code>{section: "Refunds", year: 2019}</code>. Both are near the query by meaning, so plain semantic search may return the 2019 one. Add the filter <code>year = 2024</code> and the search keeps only current passages, so the model never even sees the outdated policy. The same pattern restricts a search to one product, one customer, or one team.</div>
+      </div>
+    </section>
+
+    <!-- 11. Pure vs keyword -->
+    <section>
+      <h2><span class="eyebrow">Two kinds of search</span>Meaning search vs keyword search</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="label" style="color:#1d4ed8">Semantic (meaning) search</div>
+            <p style="font-size:0.9em; color:#3f4a63">Matches by embedding closeness, so it catches <strong>paraphrases</strong>, the same idea in different words. "download my bills" finds "export invoices". But it can miss an exact string it never learned to associate.</p>
+          </div>
+          <div class="card">
+            <div class="label" style="color:#b45309">Keyword search (BM25)</div>
+            <p style="font-size:0.9em; color:#3f4a63">Matches by exact word overlap, scoring rarer shared words higher. It nails a product code, an error number, or a proper name, but misses a paraphrase that shares no words.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Paraphrase, defined</span>Two texts that carry the same meaning with different words ("cancel my plan" and "end my subscription"). Meaning search treats them as close; keyword search does not, because they share no words.</div>
+      </div>
+    </section>
+
+    <!-- 12. Hybrid search -->
+    <section>
+      <h2><span class="eyebrow">Hybrid search</span>Run both, then blend the scores</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0"><strong>Hybrid search</strong> runs the meaning search and the keyword search on the same query, normalizes each set of scores to a common scale, and adds them with a weight: \( \text{score} = \alpha \cdot \text{semantic} + (1-\alpha) \cdot \text{keyword} \). Here \( \alpha \) is a fraction between 0 and 1: \( \alpha = 1 \) is pure meaning search, \( \alpha = 0 \) is pure keyword search, and values in between blend the two. You get paraphrase matching and exact-string matching at once.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 190" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:240px" font-family="Segoe UI, Arial, sans-serif">
+            <text x="320" y="20" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3f4a63">query: "error E-4021 on export"</text>
+            <rect x="30" y="40" width="210" height="70" rx="9" fill="#eff6ff" stroke="#2563eb"/>
+            <text x="135" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#1d4ed8">meaning search</text>
+            <text x="135" y="82" text-anchor="middle" font-size="10" fill="#3f4a63">finds "problems when exporting"</text>
+            <text x="135" y="96" text-anchor="middle" font-size="10" fill="#3f4a63">misses the exact code "E-4021"</text>
+            <rect x="400" y="40" width="210" height="70" rx="9" fill="#fef3c7" stroke="#d97706"/>
+            <text x="505" y="62" text-anchor="middle" font-size="11" font-weight="700" fill="#b45309">keyword search (BM25)</text>
+            <text x="505" y="82" text-anchor="middle" font-size="10" fill="#3f4a63">finds the exact code "E-4021"</text>
+            <text x="505" y="96" text-anchor="middle" font-size="10" fill="#3f4a63">misses the paraphrase</text>
+            <line x1="200" y1="110" x2="285" y2="140" stroke="#2563eb" stroke-width="1.8" marker-end="url(#a44d)"/>
+            <line x1="440" y1="110" x2="355" y2="140" stroke="#d97706" stroke-width="1.8" marker-end="url(#a44e)"/>
+            <rect x="250" y="142" width="140" height="34" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+            <text x="320" y="164" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">blend the scores</text>
+            <defs>
+              <marker id="a44d" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+              <marker id="a44e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#d97706"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Another way to blend: RRF</span>Blending raw scores needs normalization. A common alternative, <strong>Reciprocal Rank Fusion (RRF)</strong>, merges the two ranked lists by <em>rank position</em> instead of raw scores, so no normalization is needed. Same goal, a different recipe; we use the weighted-score blend here for its simplicity.</div>
+      </div>
+    </section>
+
+    <!-- 13. top-k -->
+    <section>
+      <h2><span class="eyebrow">Top-k</span>How many passages to fetch</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>Top-k</strong> is how many passages the retriever returns. It is a real trade-off: too few and you miss the passage that held the answer; too many and you bury the model in noise and pay for extra tokens.</p>
+            <div class="callout"><span class="label">A sensible default</span>Start around \( k = 3 \) to \( 5 \) for short docs, then adjust by watching whether answers miss context or drift off into irrelevant passages.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="60" y="30" text-anchor="middle" font-size="11" font-weight="700" fill="#be123c">k = 1</text>
+              <rect x="35" y="40" width="50" height="20" rx="4" fill="#86efac" stroke="#16a34a"/>
+              <text x="60" y="80" text-anchor="middle" font-size="9.5" fill="#7f1d1d">may miss</text>
+              <text x="60" y="93" text-anchor="middle" font-size="9.5" fill="#7f1d1d">the answer</text>
+              <text x="160" y="30" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">k = 4</text>
+              <rect x="135" y="40" width="50" height="20" rx="4" fill="#86efac" stroke="#16a34a"/>
+              <rect x="135" y="63" width="50" height="20" rx="4" fill="#86efac" stroke="#16a34a"/>
+              <rect x="135" y="86" width="50" height="20" rx="4" fill="#86efac" stroke="#16a34a"/>
+              <rect x="135" y="109" width="50" height="20" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+              <text x="160" y="146" text-anchor="middle" font-size="9.5" fill="#047857">enough context</text>
+              <text x="260" y="30" text-anchor="middle" font-size="11" font-weight="700" fill="#b45309">k = 20</text>
+              <rect x="235" y="40" width="50" height="12" rx="3" fill="#bbf7d0" stroke="#16a34a"/>
+              <rect x="235" y="54" width="50" height="12" rx="3" fill="#fde68a" stroke="#d97706"/>
+              <rect x="235" y="68" width="50" height="12" rx="3" fill="#fde68a" stroke="#d97706"/>
+              <rect x="235" y="82" width="50" height="12" rx="3" fill="#fecaca" stroke="#dc2626"/>
+              <rect x="235" y="96" width="50" height="12" rx="3" fill="#fecaca" stroke="#dc2626"/>
+              <rect x="235" y="110" width="50" height="12" rx="3" fill="#fecaca" stroke="#dc2626"/>
+              <text x="260" y="146" text-anchor="middle" font-size="9.5" fill="#b45309">noise and cost</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>A searchable store over a real corpus</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Build the store over a real corpus: actual IRS tax publications (public domain), chunked and tagged with metadata (publication, tax year, page). Embed the chunks into a FAISS index and query it by meaning, with a metadata filter, and with a hybrid keyword blend. This retriever is reused in class 4.5 (RAG from scratch).</p>
+            <ul class="tight">
+              <li>Chunk a real publication page, then embed each chunk.</li>
+              <li>Build a FAISS index; keep a parallel list of metadata.</li>
+              <li>Query by meaning; then filter to the current tax year.</li>
+              <li>Add a BM25 keyword score and blend for hybrid search.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 230" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="90" y="14" width="140" height="28" rx="6" fill="#f8fafc" stroke="#94a3b8"/><text x="160" y="33" text-anchor="middle" font-size="10.5" fill="#3f4a63">docs + metadata</text>
+              <line x1="160" y1="42" x2="160" y2="62" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a44f)"/>
+              <rect x="100" y="62" width="120" height="26" rx="6" fill="#dbeafe" stroke="#2563eb"/><text x="160" y="80" text-anchor="middle" font-size="10.5" fill="#1e40af">chunk + embed</text>
+              <line x1="160" y1="88" x2="160" y2="108" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a44f)"/>
+              <rect x="105" y="108" width="110" height="26" rx="6" fill="#ecfdf5" stroke="#10b981"/><text x="160" y="126" text-anchor="middle" font-size="10.5" fill="#047857">FAISS index</text>
+              <line x1="120" y1="134" x2="95" y2="168" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a44f)"/>
+              <line x1="200" y1="134" x2="225" y2="168" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#a44h)"/>
+              <rect x="40" y="170" width="110" height="42" rx="6" fill="#eff6ff" stroke="#2563eb"/><text x="95" y="188" text-anchor="middle" font-size="9.5" fill="#1e40af">query: meaning</text><text x="95" y="202" text-anchor="middle" font-size="9.5" fill="#1e40af">+ metadata filter</text>
+              <rect x="170" y="170" width="110" height="42" rx="6" fill="#fef3c7" stroke="#d97706"/><text x="225" y="188" text-anchor="middle" font-size="9.5" fill="#b45309">+ BM25 keyword</text><text x="225" y="202" text-anchor="middle" font-size="9.5" fill="#b45309">= hybrid</text>
+              <defs>
+                <marker id="a44f" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+                <marker id="a44h" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7c3aed"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Turn text into embeddings and compare them with cosine.</li>
+              <li>Chunk documents sensibly, with overlap.</li>
+              <li>Store vectors in an index and retrieve the nearest.</li>
+              <li>Filter by metadata and blend in keyword search.</li>
+              <li>Pick a vector store for the job.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Apply the same pattern to a new corpus of real movie plots: embed them, search by meaning with a FAISS index, filter by year to pick the right remake, then show where keyword-only search ranks the wrong film and dense retrieval fixes it.</p>
+            <div class="callout"><span class="label">Next, class 4.5</span>RAG from scratch: feed these retrieved passages to the model and answer questions from your documents, with citations.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
