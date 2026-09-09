@@ -1,0 +1,104 @@
+"""Generate corpus.jsonl from genuine IRS publication content.
+
+This writes the small, shipped teaching corpus used by the class build and the
+micro-assignment. The text is drawn from public-domain IRS publications (US
+government works, 17 USC 105), lightly condensed for teaching. Every figure was
+checked against the current and prior-year publications.
+
+Run:  python make_corpus.py    ->  writes corpus.jsonl next to this file
+
+To build the FULL corpus from the original PDFs instead, use fetch_corpus.py
+(same schema, more chunks). The class code and micro-assignment read corpus.jsonl
+either way, so they work with this shipped sample out of the box.
+
+Record schema (one JSON object per line):
+  id, pub, title, tax_year, page, source_url, text
+"""
+
+import json
+import pathlib
+
+# The "page" values are representative section pages, not exact typeset pages;
+# fetch_corpus.py records true page numbers from the PDFs.
+RECORDS = [
+    # ---- Pub 501: the STALE PAIR (same topic, two tax years, changed number) ----
+    {"id": "p501-2024-stdded", "pub": "Pub 501", "title": "Dependents, Standard Deduction, and Filing Information",
+     "tax_year": 2024, "page": 24, "source_url": "https://www.irs.gov/pub/irs-prior/p501--2024.pdf",
+     "text": "Standard deduction for 2024. For tax year 2024 the basic standard deduction is 14,600 dollars for single filers and for married persons filing separately, 29,200 dollars for married couples filing jointly and qualifying surviving spouses, and 21,900 dollars for heads of household. Most filers who do not itemize subtract the standard deduction for their filing status from income."},
+    {"id": "p501-2025-stdded", "pub": "Pub 501", "title": "Dependents, Standard Deduction, and Filing Information",
+     "tax_year": 2025, "page": 24, "source_url": "https://www.irs.gov/pub/irs-pdf/p501.pdf",
+     "text": "Standard deduction for 2025. For tax year 2025 the basic standard deduction is 15,000 dollars for single filers and for married persons filing separately, 30,000 dollars for married couples filing jointly and qualifying surviving spouses, and 22,500 dollars for heads of household. The amounts are adjusted each year for inflation."},
+
+    # ---- Pub 501: other filing topics ----
+    {"id": "p501-2025-status", "pub": "Pub 501", "title": "Dependents, Standard Deduction, and Filing Information",
+     "tax_year": 2025, "page": 6, "source_url": "https://www.irs.gov/pub/irs-pdf/p501.pdf",
+     "text": "Filing status. Your filing status is generally one of five categories: single, married filing jointly, married filing separately, head of household, and qualifying surviving spouse. Your marital status on the last day of the year usually determines your status for the whole year. Head of household applies to certain unmarried people who pay more than half the cost of keeping up a home for a qualifying person."},
+    {"id": "p501-2025-mustfile", "pub": "Pub 501", "title": "Dependents, Standard Deduction, and Filing Information",
+     "tax_year": 2025, "page": 2, "source_url": "https://www.irs.gov/pub/irs-pdf/p501.pdf",
+     "text": "Who must file. Whether you must file a federal income tax return depends on your gross income, your filing status, your age, and whether you are a dependent. In general, if your gross income is at or above the standard deduction for your filing status, you are required to file. Special rules raise or lower the threshold for dependents and for people age 65 or older."},
+    {"id": "p501-2025-dependent", "pub": "Pub 501", "title": "Dependents, Standard Deduction, and Filing Information",
+     "tax_year": 2025, "page": 10, "source_url": "https://www.irs.gov/pub/irs-pdf/p501.pdf",
+     "text": "Claiming a dependent. A dependent is either a qualifying child or a qualifying relative. A qualifying child must meet tests for relationship, age, residency, and support. A qualifying relative must meet a gross income test and a support test. You cannot claim a married person who files a joint return as a dependent unless that return is filed only to claim a refund."},
+
+    # ---- Pub 502: Medical and Dental Expenses ----
+    {"id": "p502-2025-threshold", "pub": "Pub 502", "title": "Medical and Dental Expenses",
+     "tax_year": 2025, "page": 2, "source_url": "https://www.irs.gov/pub/irs-pdf/p502.pdf",
+     "text": "Deducting medical and dental expenses. You can deduct on Schedule A only the part of your total medical and dental expenses that is more than 7.5 percent of your adjusted gross income. You must itemize deductions to claim them, and only unreimbursed expenses count. Payments for a spouse or a dependent may be included."},
+    {"id": "p502-2025-dental", "pub": "Pub 502", "title": "Medical and Dental Expenses",
+     "tax_year": 2025, "page": 6, "source_url": "https://www.irs.gov/pub/irs-pdf/p502.pdf",
+     "text": "Dental treatment. You can include in medical expenses the amounts you pay for dental treatment, including services of a dentist for procedures such as X-rays, fillings, braces, extractions, and dentures. Teeth whitening and other purely cosmetic procedures are not deductible."},
+    {"id": "p502-2025-deductible", "pub": "Pub 502", "title": "Medical and Dental Expenses",
+     "tax_year": 2025, "page": 5, "source_url": "https://www.irs.gov/pub/irs-pdf/p502.pdf",
+     "text": "What you can include. Deductible medical expenses include fees to doctors, dentists, surgeons, and other medical practitioners, prescription medicines and insulin, hospital care, eyeglasses and contact lenses, hearing aids, and premiums you pay for medical insurance with after-tax dollars. You can also include the cost of transportation primarily for and essential to medical care."},
+    {"id": "p502-2025-notdeductible", "pub": "Pub 502", "title": "Medical and Dental Expenses",
+     "tax_year": 2025, "page": 15, "source_url": "https://www.irs.gov/pub/irs-pdf/p502.pdf",
+     "text": "What you cannot include. You generally cannot deduct nonprescription drugs other than insulin, cosmetic surgery that is not medically necessary, health club dues for general health, funeral expenses, or amounts reimbursed by insurance or paid through a tax-advantaged account. Everyday items that are beneficial to general health, such as vitamins, are not deductible."},
+
+    # ---- Pub 969: HSAs and other tax-favored health plans ----
+    {"id": "p969-2024-limit", "pub": "Pub 969", "title": "Health Savings Accounts and Other Tax-Favored Health Plans",
+     "tax_year": 2024, "page": 5, "source_url": "https://www.irs.gov/pub/irs-prior/p969--2024.pdf",
+     "text": "HSA contribution limits for 2024. For 2024 the most you can contribute to a health savings account is 4,150 dollars for self-only high deductible health plan coverage and 8,300 dollars for family coverage. If you are age 55 or older at the end of the year you can add a 1,000 dollar catch-up contribution."},
+    {"id": "p969-2025-limit", "pub": "Pub 969", "title": "Health Savings Accounts and Other Tax-Favored Health Plans",
+     "tax_year": 2025, "page": 5, "source_url": "https://www.irs.gov/pub/irs-pdf/p969.pdf",
+     "text": "HSA contribution limits for 2025. For 2025 the most you can contribute to a health savings account is 4,300 dollars for self-only high deductible health plan coverage and 8,550 dollars for family coverage. The additional catch-up contribution for those age 55 or older remains 1,000 dollars."},
+    {"id": "p969-2025-eligible", "pub": "Pub 969", "title": "Health Savings Accounts and Other Tax-Favored Health Plans",
+     "tax_year": 2025, "page": 3, "source_url": "https://www.irs.gov/pub/irs-pdf/p969.pdf",
+     "text": "HSA eligibility. To open and contribute to a health savings account you must be covered under a qualifying high deductible health plan, have no other disqualifying health coverage, not be enrolled in Medicare, and not be claimed as a dependent on someone else's return. An HSA is owned by the individual and the balance carries over year to year."},
+    {"id": "p969-2025-qualified", "pub": "Pub 969", "title": "Health Savings Accounts and Other Tax-Favored Health Plans",
+     "tax_year": 2025, "page": 8, "source_url": "https://www.irs.gov/pub/irs-pdf/p969.pdf",
+     "text": "Qualified HSA distributions. Money taken from a health savings account is tax free when used to pay qualified medical expenses, such as amounts that would be deductible medical costs. Distributions used for other purposes are included in income and, before age 65, are generally subject to an additional 20 percent tax."},
+
+    # ---- Pub 526: Charitable Contributions ----
+    {"id": "p526-2025-deduct", "pub": "Pub 526", "title": "Charitable Contributions",
+     "tax_year": 2025, "page": 2, "source_url": "https://www.irs.gov/pub/irs-pdf/p526.pdf",
+     "text": "Deducting charitable gifts. You can deduct contributions to qualified organizations only if you itemize deductions on Schedule A. A qualified organization is generally a nonprofit religious, charitable, educational, or similar group. Gifts to individuals, political organizations, and political candidates are never deductible."},
+    {"id": "p526-2025-limit", "pub": "Pub 526", "title": "Charitable Contributions",
+     "tax_year": 2025, "page": 8, "source_url": "https://www.irs.gov/pub/irs-pdf/p526.pdf",
+     "text": "Limits on charitable deductions. The total you can deduct in a year is limited to a percentage of your adjusted gross income. Cash contributions to most public charities are deductible up to 60 percent of adjusted gross income, with lower limits for gifts of property and for certain organizations. Amounts over the limit can usually be carried forward for up to five years."},
+    {"id": "p526-2025-records", "pub": "Pub 526", "title": "Charitable Contributions",
+     "tax_year": 2025, "page": 18, "source_url": "https://www.irs.gov/pub/irs-pdf/p526.pdf",
+     "text": "Recordkeeping for donations. For any cash gift you need a bank record or a written acknowledgment from the charity. For a single contribution of 250 dollars or more you must obtain a written acknowledgment from the organization before you file. Extra rules and forms apply to noncash gifts over 500 dollars."},
+
+    # ---- Pub 936: Home Mortgage Interest Deduction ----
+    {"id": "p936-2025-limit", "pub": "Pub 936", "title": "Home Mortgage Interest Deduction",
+     "tax_year": 2025, "page": 2, "source_url": "https://www.irs.gov/pub/irs-pdf/p936.pdf",
+     "text": "Home mortgage interest limit. For home acquisition debt taken on after December 15, 2017, you can deduct the interest on up to 750,000 dollars of debt, or 375,000 dollars if married filing separately. Older loans may qualify under a higher one million dollar limit. The loan must be secured by your main home or a second home."},
+    {"id": "p936-2025-points", "pub": "Pub 936", "title": "Home Mortgage Interest Deduction",
+     "tax_year": 2025, "page": 7, "source_url": "https://www.irs.gov/pub/irs-pdf/p936.pdf",
+     "text": "Points. Points are charges paid to obtain a home mortgage and are a form of prepaid interest. You can often deduct points paid to buy or build your main home in the year you pay them if several tests are met; otherwise you deduct them ratably over the life of the loan. Points paid to refinance are generally deducted over the life of the new loan."},
+    {"id": "p936-2025-deductible", "pub": "Pub 936", "title": "Home Mortgage Interest Deduction",
+     "tax_year": 2025, "page": 3, "source_url": "https://www.irs.gov/pub/irs-pdf/p936.pdf",
+     "text": "What qualifies as home mortgage interest. Home mortgage interest is interest you pay on a loan secured by your main home or a second home. The loan can be a mortgage to buy your home, a second mortgage, a line of credit, or a home equity loan used to buy, build, or substantially improve the home. You claim the deduction on Schedule A."},
+]
+
+
+def main():
+    out = pathlib.Path(__file__).with_name("corpus.jsonl")
+    with out.open("w") as f:
+        for r in RECORDS:
+            f.write(json.dumps(r) + "\n")
+    print(f"wrote {len(RECORDS)} records to {out}")
+
+
+if __name__ == "__main__":
+    main()

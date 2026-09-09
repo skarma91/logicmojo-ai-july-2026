@@ -42,7 +42,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [4.2 Prompt engineering for production](modules/module-4-llms-genai/02-prompt-engineering/)
 - [4.3 Structured outputs and tool calling](modules/module-4-llms-genai/03-structured-outputs-and-tool-calling/)
 - [4.4 Embeddings and vector databases](modules/module-4-llms-genai/04-embeddings-and-vector-databases/)
-- 4.5 RAG from scratch (upcoming)
+- [4.5 RAG from scratch](modules/module-4-llms-genai/05-rag-from-scratch/)
 - 4.6 RAG with frameworks (upcoming)
 - 4.7 How LLMs are served (upcoming)
 - 4.8 Evaluating LLM and RAG (upcoming)

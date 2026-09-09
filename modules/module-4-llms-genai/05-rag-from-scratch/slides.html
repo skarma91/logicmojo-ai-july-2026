@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.5 - RAG from scratch</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.5</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.5</span>
+      <h1>RAG from scratch</h1>
+      <p class="lead">Retrieval gave you the relevant passages. Now feed them to the model so it answers from your documents, with citations, instead of guessing. This is the Domain Knowledge Assistant, born.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Why RAG<span class="step-note">Private data, and a cure for confident guessing.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The six-step loop<span class="step-note">Ingest, chunk, embed, retrieve, augment, generate.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Citations<span class="step-note">Carry each passage's source through to the answer.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The bad-chunk failure<span class="step-note">Feel how retrieval quality decides answer quality.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">A UI over the loop<span class="step-note">A small app that makes retrieval visible.</span></div></div></div>
+            <div class="step"><div class="step-num">6</div><div><div class="step-title">The RAG landscape<span class="step-note">You built the naive one; name what comes next.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The running artifact</span>This assistant grows for the rest of the course: refactored in class 4.6 (RAG with frameworks), evaluated in class 4.8 (Evaluating LLM and RAG), extended with a fine-tuned component in class 4.10 (Fine-tuning II, QLoRA and alignment), and turned into an agent's tool in Module 5 (AI Agents).</div>
+            <div class="pill"><span class="pill-tag">New environment</span>From here the build is a <code>.py</code> project (<code>python main.py</code>), not a notebook.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The goal -->
+    <section>
+      <h2><span class="eyebrow">The goal</span>Answers grounded in your documents</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:340px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="20" width="600" height="40" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+            <text x="34" y="45" font-size="13" fill="#065f46"><tspan font-weight="700">Q:</tspan> "How do I export my invoices, and what format do I get?"</text>
+            <rect x="20" y="74" width="600" height="96" rx="9" fill="#eff6ff" stroke="#2563eb"/>
+            <text x="34" y="98" font-size="13" fill="#1e40af"><tspan font-weight="700">A:</tspan> Open Sales, then Invoices, select the rows, and choose</text>
+            <text x="34" y="118" font-size="13" fill="#1e40af">Export to CSV. The file downloads to your computer <tspan font-weight="700">[1]</tspan>.</text>
+            <text x="34" y="146" font-size="12" fill="#3f4a63">The answer uses only the retrieved passages, and every claim</text>
+            <text x="34" y="162" font-size="12" fill="#3f4a63">points back to its source.</text>
+            <rect x="20" y="184" width="600" height="58" rx="9" fill="#f8fafc" stroke="#cbd5e1"/>
+            <text x="34" y="206" font-size="11.5" font-weight="700" fill="#475569">Sources</text>
+            <text x="34" y="226" font-size="11.5" fill="#475569">[1] handbook-2024, "Exporting invoices"</text>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The two properties that matter</span>The answer is <strong>grounded</strong> (it comes from your documents, not the model's memory) and <strong>attributable</strong> (you can check each claim against a cited source). Together they make it trustworthy.</div>
+      </div>
+    </section>
+
+    <!-- 4. Why RAG -->
+    <section>
+      <h2><span class="eyebrow">Why RAG</span>It fixes the two big LLM weaknesses</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <div class="label" style="color:#be123c">Weakness 1: no private knowledge</div>
+            <p style="font-size:0.9em; color:#3f4a63">The model never saw your handbook or tickets. On its own it cannot answer questions about them.</p>
+            <p style="font-size:0.9em; color:#047857"><strong>RAG:</strong> retrieves the relevant passages and puts them in the prompt, so the model reads them at question time.</p>
+          </div>
+          <div class="card">
+            <div class="label" style="color:#be123c">Weakness 2: confident hallucination</div>
+            <p style="font-size:0.9em; color:#3f4a63">Asked something it does not know, the model often invents a fluent, wrong answer.</p>
+            <p style="font-size:0.9em; color:#047857"><strong>RAG:</strong> grounds the answer in real text and cites it, so made-up claims are far less likely and easy to catch.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The one-line idea</span>Retrieval-augmented generation = find the relevant text first, then ask the model to answer using that text.</div>
+      </div>
+    </section>
+
+    <!-- 5. The six-step loop -->
+    <section>
+      <h2><span class="eyebrow">The loop</span>Six steps, split into build time and query time</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 250" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:330px" font-family="Segoe UI, Arial, sans-serif">
+            <text x="230" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">build time (once, ahead)</text>
+            <rect x="20" y="32" width="420" height="70" rx="10" fill="#faf5ff" stroke="#7c3aed" stroke-dasharray="4 3"/>
+            <rect x="34" y="52" width="120" height="34" rx="7" fill="#fff" stroke="#7c3aed"/><text x="94" y="74" text-anchor="middle" font-size="11" fill="#5b21b6">1. ingest docs</text>
+            <rect x="170" y="52" width="110" height="34" rx="7" fill="#fff" stroke="#7c3aed"/><text x="225" y="74" text-anchor="middle" font-size="11" fill="#5b21b6">2. chunk</text>
+            <rect x="296" y="52" width="130" height="34" rx="7" fill="#fff" stroke="#7c3aed"/><text x="361" y="74" text-anchor="middle" font-size="11" fill="#5b21b6">3. embed + store</text>
+            <line x1="154" y1="69" x2="170" y2="69" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#a45)"/>
+            <line x1="280" y1="69" x2="296" y2="69" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#a45)"/>
+
+            <text x="670" y="20" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">query time (every question)</text>
+            <rect x="460" y="32" width="420" height="70" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-dasharray="4 3"/>
+            <rect x="472" y="52" width="120" height="34" rx="7" fill="#fff" stroke="#2563eb"/><text x="532" y="74" text-anchor="middle" font-size="11" fill="#1e40af">4. retrieve</text>
+            <rect x="606" y="52" width="120" height="34" rx="7" fill="#fff" stroke="#2563eb"/><text x="666" y="74" text-anchor="middle" font-size="11" fill="#1e40af">5. augment</text>
+            <rect x="740" y="52" width="126" height="34" rx="7" fill="#fff" stroke="#2563eb"/><text x="803" y="74" text-anchor="middle" font-size="11" fill="#1e40af">6. generate</text>
+            <line x1="592" y1="69" x2="606" y2="69" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a45b)"/>
+            <line x1="726" y1="69" x2="740" y2="69" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a45b)"/>
+
+            <path d="M361,102 L361,150 L532,150 L532,104" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a45c)"/>
+            <text x="446" y="170" text-anchor="middle" font-size="11.5" fill="#6b7793">the stored index is what retrieve searches at query time</text>
+
+            <text x="450" y="205" text-anchor="middle" font-size="12.5" fill="#3f4a63">Steps 1 to 3 build the searchable store (class 4.4, Embeddings and vector databases). Steps 4 to 6 answer a question.</text>
+            <defs>
+              <marker id="a45" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7c3aed"/></marker>
+              <marker id="a45b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+              <marker id="a45c" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker>
+            </defs>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. retrieve augment generate -->
+    <section>
+      <h2><span class="eyebrow">Query time</span>Retrieve, augment, generate</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 240" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:320px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="100" width="120" height="44" rx="9" fill="#ecfdf5" stroke="#10b981"/><text x="80" y="127" text-anchor="middle" font-size="12" fill="#065f46">question</text>
+            <line x1="140" y1="122" x2="180" y2="122" stroke="#2563eb" stroke-width="2" marker-end="url(#a45d)"/>
+            <rect x="182" y="100" width="130" height="44" rx="9" fill="#eff6ff" stroke="#2563eb"/><text x="247" y="120" text-anchor="middle" font-size="11" fill="#1e40af">retrieve</text><text x="247" y="135" text-anchor="middle" font-size="9.5" fill="#3f4a63">top-k chunks</text>
+            <line x1="312" y1="122" x2="352" y2="122" stroke="#2563eb" stroke-width="2" marker-end="url(#a45d)"/>
+            <rect x="354" y="86" width="150" height="72" rx="9" fill="#fff7ed" stroke="#f59e0b"/>
+            <text x="429" y="106" text-anchor="middle" font-size="11" font-weight="700" fill="#b45309">augment</text>
+            <text x="429" y="124" text-anchor="middle" font-size="9.5" fill="#3f4a63">context chunks +</text>
+            <text x="429" y="137" text-anchor="middle" font-size="9.5" fill="#3f4a63">the question, in</text>
+            <text x="429" y="150" text-anchor="middle" font-size="9.5" fill="#3f4a63">one prompt</text>
+            <line x1="504" y1="122" x2="544" y2="122" stroke="#2563eb" stroke-width="2" marker-end="url(#a45d)"/>
+            <rect x="546" y="100" width="120" height="44" rx="9" fill="#1e293b"/><text x="606" y="127" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">generate</text>
+            <line x1="666" y1="122" x2="706" y2="122" stroke="#2563eb" stroke-width="2" marker-end="url(#a45d)"/>
+            <rect x="708" y="100" width="150" height="44" rx="9" fill="#ecfdf5" stroke="#10b981"/><text x="783" y="120" text-anchor="middle" font-size="11" fill="#065f46">grounded answer</text><text x="783" y="135" text-anchor="middle" font-size="9.5" fill="#3f4a63">with citations</text>
+            <text x="450" y="200" text-anchor="middle" font-size="12" fill="#3f4a63">The prompt says: "Answer the question using only the context below, and cite the sources."</text>
+            <defs><marker id="a45d" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The instruction does the grounding</span>"Use only the context" is what keeps the model from wandering into its own memory. Retrieval supplies the facts; the instruction forces the model to stay inside them.</div>
+      </div>
+    </section>
+
+    <!-- 7. Citations -->
+    <section>
+      <h2><span class="eyebrow">Citations</span>Carry the source through the whole loop</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Each chunk carries its source metadata from ingestion onward. When you build the prompt, number the chunks and label each with its source. Ask the model to cite those numbers, then map the numbers back to real sources for the reader.</p>
+            <div class="callout"><span class="label">Why it is non-negotiable</span>A grounded answer you cannot verify is just a confident answer. Citations let a reader check the claim, and let you debug which retrieved passage led the model astray.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="16" y="16" width="288" height="52" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+              <text x="26" y="36" font-size="10" fill="#475569">chunk: "Export to CSV from Sales..."</text>
+              <text x="26" y="54" font-size="10" fill="#94a3b8">source: handbook-2024</text>
+              <line x1="160" y1="68" x2="160" y2="88" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a45e)"/>
+              <rect x="16" y="90" width="288" height="46" rx="8" fill="#fff7ed" stroke="#f59e0b"/>
+              <text x="26" y="110" font-size="10" fill="#7c2d12">prompt: "[1] Export to CSV...  (handbook-2024)"</text>
+              <text x="26" y="126" font-size="10" fill="#7c2d12">"Answer and cite like [1]."</text>
+              <line x1="160" y1="136" x2="160" y2="156" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a45e)"/>
+              <rect x="16" y="158" width="288" height="46" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="26" y="178" font-size="10" fill="#065f46">answer: "...choose Export to CSV [1]."</text>
+              <text x="26" y="194" font-size="10" fill="#065f46">[1] = handbook-2024 (mapped back)</text>
+              <defs><marker id="a45e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>RAG does not retrain the model</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">"RAG teaches the model my documents." It does not. The model's weights never change. RAG simply places relevant text in the prompt at question time; the model reads its context, as always, and answers.</p>
+            <div class="callout"><span class="label">Consequence</span>Update a document and the next answer reflects it immediately, no retraining. This is exactly why RAG, not fine-tuning, is the right tool for knowledge (a point we return to in class 4.9, Fine-tuning I).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="130" height="140" rx="10" fill="#1e293b"/>
+              <text x="85" y="56" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">the model</text>
+              <text x="85" y="92" text-anchor="middle" font-size="10.5" fill="#cbd5e1">weights</text>
+              <text x="85" y="108" text-anchor="middle" font-size="10.5" fill="#86efac">unchanged</text>
+              <text x="85" y="138" text-anchor="middle" font-size="9.5" fill="#cbd5e1">it only reads</text>
+              <text x="85" y="152" text-anchor="middle" font-size="9.5" fill="#cbd5e1">its prompt</text>
+              <rect x="180" y="52" width="124" height="44" rx="9" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="242" y="78" text-anchor="middle" font-size="10.5" fill="#065f46">retrieved text</text>
+              <line x1="180" y1="90" x2="150" y2="105" stroke="#10b981" stroke-width="2" marker-end="url(#a45f)"/>
+              <text x="242" y="128" text-anchor="middle" font-size="10" fill="#3f4a63">goes into the prompt,</text>
+              <text x="242" y="143" text-anchor="middle" font-size="10" fill="#3f4a63">not into the weights</text>
+              <defs><marker id="a45f" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#10b981"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Build + bad chunk -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Hand-build the loop, then break it on purpose</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Assemble the full loop over the real IRS corpus from class 4.4: retrieve, build a cited prompt, generate. Then trigger a <strong>stale-document failure</strong> and fix it live, so you feel that retrieval quality decides answer quality.</p>
+            <ul class="tight">
+              <li>Reuse the FAISS retriever from class 4.4 (Embeddings and vector databases).</li>
+              <li>Build a prompt that carries numbered context, cited by publication, tax year, and page.</li>
+              <li>Ask "what is the standard deduction for a single filer"; without a filter last year's passage is retrieved and the answer quotes the old figure.</li>
+              <li>Fix it with a <code>tax_year</code> metadata filter; the answer corrects to the current figure.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="18" text-anchor="middle" font-size="11" font-weight="700" fill="#be123c">before: no tax-year filter</text>
+              <rect x="30" y="28" width="260" height="30" rx="6" fill="#fee2e2" stroke="#be123c"/>
+              <text x="160" y="47" text-anchor="middle" font-size="10" fill="#7f1d1d">retrieves the 2024 passage -&gt; stale answer</text>
+              <rect x="30" y="64" width="260" height="26" rx="6" fill="#fef2f2" stroke="#be123c"/>
+              <text x="160" y="81" text-anchor="middle" font-size="9.5" fill="#7f1d1d">"standard deduction is 14,600" (last year)</text>
+              <text x="160" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">after: filter to tax_year 2025</text>
+              <rect x="30" y="128" width="260" height="30" rx="6" fill="#dcfce7" stroke="#047857"/>
+              <text x="160" y="147" text-anchor="middle" font-size="10" fill="#065f46">retrieves the 2025 passage -&gt; correct answer</text>
+              <rect x="30" y="164" width="260" height="26" rx="6" fill="#ecfdf5" stroke="#047857"/>
+              <text x="160" y="181" text-anchor="middle" font-size="9.5" fill="#065f46">"standard deduction is 15,000 [1]"</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. A UI over the loop -->
+    <section>
+      <h2><span class="eyebrow">See it</span>A small UI that makes retrieval visible</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The loop is the same functions you just wrote; a thin <strong>Streamlit</strong> app puts a face on it. A text box takes the question, the app runs retrieve then augment then generate, and shows the grounded answer with its sources.</p>
+            <p class="stmt">The point of the app is the panel below the answer: <strong>show the retrieved chunks and their similarity scores</strong>. Now the bad-chunk failure is not a story, it is on screen. When an answer looks wrong, you open the panel and see which passage misled it.</p>
+            <div class="callout"><span class="label">Why a UI here</span>Streamlit returned from class 4.1 (Working with LLMs). Reuse: the logic lives in <code>main.py</code>; <code>app.py</code> only imports <code>answer()</code> and draws the boxes. No new RAG code.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 300" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="12" y="12" width="316" height="276" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+              <rect x="12" y="12" width="316" height="30" rx="10" fill="#eef2ff" stroke="#cbd5e1"/>
+              <text x="26" y="32" font-size="11" font-weight="700" fill="#3730a3">Domain Knowledge Assistant</text>
+              <text x="26" y="60" font-size="10" fill="#475569">Your question</text>
+              <rect x="26" y="66" width="288" height="26" rx="6" fill="#f8fafc" stroke="#94a3b8"/>
+              <text x="34" y="83" font-size="10" fill="#1e293b">What is the standard deduction for a single filer?</text>
+              <rect x="26" y="100" width="288" height="60" rx="7" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="34" y="118" font-size="10" font-weight="700" fill="#1e40af">Answer</text>
+              <text x="34" y="134" font-size="9.5" fill="#1e40af">The standard deduction for a single filer is</text>
+              <text x="34" y="148" font-size="9.5" fill="#1e40af">15,000 for tax year 2025 [1].</text>
+              <text x="26" y="176" font-size="9.5" fill="#065f46">Sources: [1] Pub 501 (2025)</text>
+              <rect x="26" y="188" width="288" height="88" rx="7" fill="#fff7ed" stroke="#f59e0b"/>
+              <text x="34" y="206" font-size="10" font-weight="700" fill="#b45309">Retrieved chunks and scores</text>
+              <text x="34" y="224" font-size="9" fill="#7c2d12">[1] Pub 501 (2025)  "...deduction is 15,000..."</text>
+              <text x="286" y="224" font-size="9" font-weight="700" fill="#7c2d12">0.71</text>
+              <text x="34" y="242" font-size="9" fill="#7c2d12">[2] Pub 501 (2024)  "...deduction is 14,600..."</text>
+              <text x="286" y="242" font-size="9" font-weight="700" fill="#7c2d12">0.68</text>
+              <text x="34" y="264" font-size="8.5" fill="#9a5b1e">the panel is where you catch a stale or off-topic hit</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. The RAG landscape (preview) -->
+    <section>
+      <h2><span class="eyebrow">Looking ahead</span>The RAG landscape: you built the naive one</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Everything you just built is <strong>naive RAG</strong>: retrieve once, augment, generate. It is the base every other variant improves on. Each upgrade below sharpens one of the same six steps; none of them replaces the loop.</p>
+        <div class="grid-table" style="grid-template-columns: 1.15fr 1.75fr 1.15fr; font-size:0.82em">
+          <div class="gt-head">Approach</div><div class="gt-head">What it adds on top of the six steps</div><div class="gt-head">Where you meet it</div>
+          <div class="gt-accent">Naive RAG (you built it)</div><div>Retrieve the top-k once, put them in the prompt, answer with citations.</div><div>this class</div>
+          <div>Query rewriting, multi-query, HyDE, HyPE</div><div>Reshape the question <em>before</em> searching, or precompute hypothetical questions per chunk, so retrieval matches better.</div><div>class 4.6 (RAG with frameworks)</div>
+          <div>Re-ranking and contextual retrieval</div><div>Retrieve a wide pool, then reorder or enrich it <em>after</em> searching to surface the best.</div><div>class 4.6 (RAG with frameworks)</div>
+          <div>Self-query (metadata filters)</div><div>Let the query set filters, the automatic version of the <code>tax_year</code> filter you wrote by hand.</div><div>seen in 4.4, automated in 4.6</div>
+          <div>Corrective RAG (CRAG)</div><div>Judge the retrieval; if it looks weak, search again or fall back before answering.</div><div>further reading</div>
+          <div>RAG-fusion</div><div>Run several query variants, then merge their rankings into one stronger list.</div><div>further reading</div>
+          <div>GraphRAG</div><div>Retrieve over a knowledge graph of linked entities, not a flat list of chunks.</div><div>further reading</div>
+          <div class="gt-accent">Agentic RAG</div><div>The model decides <em>when</em> and <em>what</em> to retrieve, in a loop, and can use other tools too.</div><div>Module 5 (AI Agents)</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The pattern</span>Read the map as a checklist against the six-step loop: fix the query (pre-retrieval), fix the results (post-retrieval), or hand control to the model (agentic). You now have the base they all build on.</div>
+      </div>
+    </section>
+
+    <!-- 12. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Assemble the full RAG loop: retrieve, augment, generate.</li>
+              <li>Carry a citation from each chunk through to the answer.</li>
+              <li>Catch a bad-chunk (stale-document) failure and fix it with a metadata filter.</li>
+              <li>Put a small UI on the loop so retrieval is visible on screen.</li>
+              <li>Place naive RAG in the wider landscape of variants.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Build the same loop over a new corpus of real movie plots, then wrap it in a Streamlit UI that shows the answer, its sources, and the retrieved chunks with their scores.</p>
+            <div class="callout"><span class="label">The module milestone</span>One part of the Module 4 milestone project builds directly on the retrieve, cite, and answer loop you assembled in this class.</div>
+            <div class="callout"><span class="label">Next, class 4.6 (RAG with frameworks)</span>Refactor this loop onto LangChain, add query rewriting and a re-ranker to measurably improve retrieval, and name where RAG stops being enough.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
