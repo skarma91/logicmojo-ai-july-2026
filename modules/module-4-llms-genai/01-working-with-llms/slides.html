@@ -161,7 +161,7 @@
           <div class="gt-accent">\( n_{\text{out}} \)</div><div>number of output tokens the model generates in its reply.</div>
           <div class="gt-accent">\( p_{\text{in}}, p_{\text{out}} \)</div><div>the price per token for input and for output. Output usually costs more than input.</div>
         </div>
-        <div class="callout" style="margin-top:8px"><span class="label">Read it aloud</span>"Pay for every token I send, plus every token it writes back." This is why a long system prompt resent on every turn quietly increases the cost, and why the context window is a budget.</div>
+        <div class="callout" style="margin-top:8px"><span class="label">Read it aloud</span>"Pay for every token I send, plus every token it writes back." This is why a long system prompt resent on every turn quietly increases the cost, and why the context window is a budget. One saving grace: when that prefix is reused, providers can serve it from a cache and bill those tokens at a steep discount, often roughly 10 to 25 percent of \(p_{\text{in}}\). That is prompt caching, covered in class 4.7 (How LLMs are served).</div>
       </div>
     </section>
 
