@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.6 - RAG with frameworks and beyond naive</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.6</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.6</span>
+      <h1>RAG with frameworks, and beyond naive</h1>
+      <p class="lead">Refactor the hand-built loop onto a framework so you stop re-plumbing, add the two upgrades that actually improve retrieval, then name honestly where RAG stops being enough.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Refactor to LangChain (LCEL)<span class="step-note">The same loop, as a composable pipeline.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Query rewriting<span class="step-note">Fix the vague question before you search.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Re-ranking<span class="step-note">Retrieve wide and cheap, then rank carefully.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Where RAG breaks<span class="step-note">The limit that makes agents necessary.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Measured gains</span>You A/B the upgraded pipeline against the class 4.5 (RAG from scratch) baseline and see retrieval quality improve, not just assume it.</div>
+            <div class="pill"><span class="pill-tag">The bridge</span>"Where RAG breaks" is exactly why Module 5 (agents) exists.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. What is LangChain -->
+    <section>
+      <h2><span class="eyebrow">The framework</span>What LangChain is, and why use one</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0"><strong>LangChain</strong> is an open-source framework for building applications on top of LLMs. It ships ready-made, swappable components (model wrappers, prompt templates, retrievers, output parsers) and a standard way to connect them, so you stop hand-writing the plumbing you wrote in class 4.5 (RAG from scratch).</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.08em; color:var(--c-accent-dark); margin:0 0 12px">LCEL and the pipe</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0"><strong>LCEL</strong> is the LangChain Expression Language. Every component is a <em>runnable</em> with the same interface, so you connect them with the pipe <code>|</code>, read left to right: each step's output becomes the next step's input, like a Unix pipe.</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.08em; color:var(--c-accent-dark); margin:0 0 12px">Why a framework, and the catch</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">You can swap a retriever or model without rewiring, and common patterns come for free. The catch: it is opinionated and hides detail, which is exactly why we built the loop by hand first. LangChain is the most common choice; LlamaIndex and plain Python are valid alternatives.</p>
+          </div>
+        </div>
+        <div class="callout"><span class="label">Why we also switch FAISS to Chroma</span>FAISS (classes 4.4 and 4.5) is a vector <em>index</em>: it stores <em>only vectors</em>, so we kept the text and metadata in a parallel list and filtered by hand after over-fetching (the "retrieve a wider pool, then keep the current year" step). <strong>Chroma</strong> is a vector <em>database</em>: it stores vectors, text, and metadata together, filters on metadata natively inside the query (no hand-rolled loop), persists to disk, and has a first-class LangChain integration that drops into a retriever. It is free and runs embedded (no server), and it uses an HNSW index by default (class 4.4, Embeddings and vector databases) for fast approximate search. It removes exactly the plumbing we wrote by hand. FAISS is still fine for a fast in-memory index; Qdrant, Weaviate, or pgvector are the step up when you need a networked or managed store.</div>
+      </div>
+    </section>
+
+    <!-- 4. LCEL refactor -->
+    <section>
+      <h2><span class="eyebrow">Refactor</span>The same loop, as an LCEL pipeline</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Now map each hand-built piece from class 4.5 (RAG from scratch) to its LangChain component. Nothing new happens; the same steps run, just assembled as a pipeline instead of glued together by hand.</p>
+        <div class="grid-table" style="grid-template-columns: 1.4fr 1.6fr">
+          <div class="gt-head">Hand-built (4.5)</div><div class="gt-head">LCEL piece</div>
+          <div class="gt-accent">FAISS search function</div><div>a <code>retriever</code> over a <strong>Chroma</strong> store</div>
+          <div class="gt-accent">build_prompt string</div><div>a <code>ChatPromptTemplate</code></div>
+          <div class="gt-accent">generate() call</div><div>a chat model runnable (<code>llm.get_chat_model()</code>)</div>
+          <div class="gt-accent">parse the reply</div><div>an output parser</div>
+        </div>
+        <pre class="code-lg" style="margin-top:8px"><code class="language-python">model = llm.get_chat_model()   # ChatOllama / ChatGroq / ChatGoogleGenerativeAI, from .env
+chain = {"context": retriever, "question": RunnablePassthrough()} | prompt | model | parser</code></pre>
+        <div class="callout"><span class="label">Reading the chain</span>The dictionary builds the two inputs the prompt needs: <code>retriever</code> fetches the context, and <code>RunnablePassthrough()</code> forwards the question unchanged. Then <code>| prompt | model | parser</code> pipes that through the prompt template, the model, and an output parser. The <code>model</code> is a real LangChain chat model chosen from the same <code>.env</code> as the rest of the course, so switching provider is one setting.</div>
+      </div>
+    </section>
+
+    <!-- 4. Query rewriting -->
+    <section>
+      <h2><span class="eyebrow">Upgrade 1</span>Query rewriting: fix the question first</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Users ask vague, underspecified questions. A short pre-step rewrites the query into something retrieval can match, before it ever hits the index.</p>
+            <div class="callout"><span class="label">Two rewrites</span><strong>1.</strong> "it broke after the update" to "reports show wrong totals after the latest software update". <strong>2.</strong> "can I deduct my home office" to "home office deduction eligibility and how it is calculated for the self-employed". Both now carry the terms a document search can match.</div>
+            <div class="callout"><span class="label">It costs an extra call</span>The rewrite is itself an LLM call that runs before every retrieval, so each query makes one more model call: more latency and more cost. Worth it when questions are vague; skip it when they already carry the right terms.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="130" height="44" rx="8" fill="#fee2e2" stroke="#be123c"/>
+              <text x="85" y="50" text-anchor="middle" font-size="10.5" fill="#7f1d1d">"it broke after</text>
+              <text x="85" y="65" text-anchor="middle" font-size="10.5" fill="#7f1d1d">the update"</text>
+              <line x1="150" y1="52" x2="185" y2="52" stroke="#2563eb" stroke-width="2" marker-end="url(#a46)"/>
+              <text x="167" y="44" text-anchor="middle" font-size="8.5" fill="#6b7793">rewrite</text>
+              <rect x="188" y="26" width="120" height="52" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="248" y="44" text-anchor="middle" font-size="9.5" fill="#065f46">"reports show wrong</text>
+              <text x="248" y="58" text-anchor="middle" font-size="9.5" fill="#065f46">totals after the</text>
+              <text x="248" y="72" text-anchor="middle" font-size="9.5" fill="#065f46">latest update"</text>
+              <line x1="248" y1="78" x2="248" y2="104" stroke="#2563eb" stroke-width="2" marker-end="url(#a46)"/>
+              <rect x="180" y="106" width="136" height="30" rx="7" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="248" y="125" text-anchor="middle" font-size="10" fill="#1e40af">retrieves the right chunk</text>
+              <text x="90" y="120" text-anchor="middle" font-size="10" fill="#be123c">vague query:</text>
+              <text x="90" y="136" text-anchor="middle" font-size="10" fill="#be123c">retrieves noise</text>
+              <defs><marker id="a46" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Re-ranking -->
+    <section>
+      <h2><span class="eyebrow">Upgrade 2</span>Re-ranking: retrieve broadly, then rank carefully</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Vector search is fast but approximate. Two-stage retrieval fixes that: first retrieve a broad set cheaply, then re-score those few candidates with a slower, more accurate <strong>cross-encoder</strong> and keep the best.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:270px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="80" width="150" height="50" rx="9" fill="#ecfdf5" stroke="#10b981"/><text x="95" y="100" text-anchor="middle" font-size="11" fill="#065f46">vector search</text><text x="95" y="116" text-anchor="middle" font-size="9.5" fill="#3f4a63">fast, get top 20</text>
+            <line x1="170" y1="105" x2="215" y2="105" stroke="#2563eb" stroke-width="2" marker-end="url(#a46b)"/>
+            <rect x="218" y="70" width="170" height="70" rx="9" fill="#fff7ed" stroke="#f59e0b"/>
+            <text x="303" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#b45309">cross-encoder</text>
+            <text x="303" y="110" text-anchor="middle" font-size="9.5" fill="#3f4a63">reads query + passage</text>
+            <text x="303" y="124" text-anchor="middle" font-size="9.5" fill="#3f4a63">together, scores each</text>
+            <line x1="388" y1="105" x2="433" y2="105" stroke="#2563eb" stroke-width="2" marker-end="url(#a46b)"/>
+            <rect x="436" y="80" width="150" height="50" rx="9" fill="#eff6ff" stroke="#2563eb"/><text x="511" y="100" text-anchor="middle" font-size="11" fill="#1e40af">keep top 4</text><text x="511" y="116" text-anchor="middle" font-size="9.5" fill="#3f4a63">most accurate</text>
+            <text x="720" y="86" font-size="11" font-weight="700" fill="#3f4a63">bi-encoder vs cross-encoder</text>
+            <text x="720" y="106" font-size="10" fill="#3f4a63">bi-encoder: embeds each side</text>
+            <text x="720" y="120" font-size="10" fill="#3f4a63">separately, fast, approximate</text>
+            <text x="720" y="134" font-size="10" fill="#3f4a63">cross-encoder: reads both at</text>
+            <text x="720" y="148" font-size="10" fill="#3f4a63">once, slow, accurate</text>
+            <defs><marker id="a46b" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Why two stages</span>A cross-encoder is too slow to score every chunk in the corpus, but perfect for re-scoring the 20 the fast search already narrowed to. Cheap filter, then expensive judge.</div>
+      </div>
+    </section>
+
+    <!-- 6b. Inside the cross-encoder -->
+    <section>
+      <h2><span class="eyebrow">Under the hood</span>Inside the cross-encoder</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 330" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:430px" font-family="Segoe UI, Arial, sans-serif">
+            <!-- divider -->
+            <line x1="450" y1="20" x2="450" y2="300" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4"/>
+
+            <!-- LEFT: bi-encoder -->
+            <text x="225" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">bi-encoder (first-pass search)</text>
+            <rect x="40" y="40" width="120" height="32" rx="7" fill="#ecfdf5" stroke="#10b981"/><text x="100" y="60" text-anchor="middle" font-size="11" fill="#065f46">query</text>
+            <rect x="250" y="40" width="140" height="32" rx="7" fill="#f8fafc" stroke="#94a3b8"/><text x="320" y="60" text-anchor="middle" font-size="11" fill="#475569">passage</text>
+            <line x1="100" y1="72" x2="100" y2="96" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <line x1="320" y1="72" x2="320" y2="96" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <rect x="40" y="98" width="120" height="38" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="100" y="121" text-anchor="middle" font-size="10.5" fill="#3730a3">encoder</text>
+            <rect x="250" y="98" width="140" height="38" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="320" y="121" text-anchor="middle" font-size="10.5" fill="#3730a3">encoder (same model)</text>
+            <line x1="100" y1="136" x2="100" y2="160" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <line x1="320" y1="136" x2="320" y2="160" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <rect x="62" y="162" width="76" height="26" rx="6" fill="#fff" stroke="#94a3b8"/><text x="100" y="179" text-anchor="middle" font-size="10" fill="#475569">vector</text>
+            <rect x="282" y="162" width="76" height="26" rx="6" fill="#fff" stroke="#94a3b8"/><text x="320" y="179" text-anchor="middle" font-size="10" fill="#475569">vector</text>
+            <line x1="100" y1="188" x2="185" y2="214" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a46e)"/>
+            <line x1="320" y1="188" x2="235" y2="214" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a46e)"/>
+            <rect x="140" y="216" width="140" height="32" rx="7" fill="#eff6ff" stroke="#2563eb"/><text x="210" y="236" text-anchor="middle" font-size="10.5" fill="#1e40af">cosine similarity</text>
+            <text x="225" y="272" text-anchor="middle" font-size="10.5" fill="#3f4a63">Each side is embedded separately, so every passage</text>
+            <text x="225" y="288" text-anchor="middle" font-size="10.5" fill="#3f4a63">can be embedded once, ahead of time. Fast, approximate.</text>
+
+            <!-- RIGHT: cross-encoder -->
+            <text x="675" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">cross-encoder (re-rank the shortlist)</text>
+            <rect x="510" y="40" width="330" height="34" rx="7" fill="#fff7ed" stroke="#f59e0b"/><text x="675" y="62" text-anchor="middle" font-size="11" fill="#7c2d12">[CLS] query [SEP] passage [SEP]</text>
+            <line x1="675" y1="74" x2="675" y2="98" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <rect x="545" y="100" width="260" height="42" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="675" y="120" text-anchor="middle" font-size="10.5" fill="#3730a3">one Transformer reads the pair jointly</text><text x="675" y="134" text-anchor="middle" font-size="9" fill="#6b7280">query tokens attend to passage tokens</text>
+            <line x1="675" y1="142" x2="675" y2="162" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <rect x="580" y="164" width="190" height="30" rx="6" fill="#fff" stroke="#94a3b8"/><text x="675" y="183" text-anchor="middle" font-size="10" fill="#475569">[CLS] output, then a linear head</text>
+            <line x1="675" y1="194" x2="675" y2="214" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46d)"/>
+            <rect x="612" y="216" width="126" height="32" rx="7" fill="#dcfce7" stroke="#047857"/><text x="675" y="236" text-anchor="middle" font-size="10.5" fill="#065f46">relevance score 0 to 1</text>
+            <text x="675" y="272" text-anchor="middle" font-size="10.5" fill="#3f4a63">Reads query and passage together, so it models</text>
+            <text x="675" y="288" text-anchor="middle" font-size="10.5" fill="#3f4a63">word-level interactions. One pass per pair. Slow, accurate.</text>
+
+            <defs>
+              <marker id="a46d" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+              <marker id="a46e" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker>
+            </defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">Why the split works</span>The bi-encoder is cheap enough to search the whole corpus but cannot see the two texts together; the cross-encoder sees them together and scores precisely but is too slow for the whole corpus. Two-stage retrieval uses each where it is strong: bi-encoder to shortlist, cross-encoder to rank.</div>
+      </div>
+    </section>
+
+    <!-- 6c. Cross-encoder: trained and used -->
+    <section>
+      <h2><span class="eyebrow">Under the hood</span>Cross-encoder: how it is trained and used</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The pair is fed as one sequence, <code>[CLS] query [SEP] passage [SEP]</code>: <code>[SEP]</code> marks the boundary, and <code>[CLS]</code> is a special token with no word meaning: because attention lets it read every query and passage token, training teaches the model to use its final vector as the pair's summary. A <strong>linear head</strong> maps that vector to one relevance score.</p>
+        <div class="cols cols-2">
+          <div>
+            <div class="callout"><span class="label">How it is trained</span>Start from a pretrained encoder (BERT, MiniLM) and add the linear head. Fine-tune on labeled <code>(query, passage)</code> pairs from <strong>MS MARCO</strong>: passages that answer the query are positives, and <em>hard negatives</em> (mined with a first-stage retriever) are the rest. The loss rewards a high score for a true match, so the head learns relevance.</div>
+            <div class="callout"><span class="label">How it re-ranks (inference)</span>The fast first stage, the bi-encoder dense search from the previous slide (or BM25), narrows to a shortlist (say 20). Run <strong>one forward pass per (query, passage) pair</strong> to score each, then sort and keep the top k. The score needs both texts together, so passages cannot be pre-encoded: accurate, but too slow for the whole corpus, which is why it only re-ranks a shortlist.</div>
+          </div>
+          <div>
+            <div class="col-label">Popular cross-encoder rerankers</div>
+            <div class="grid-table" style="grid-template-columns: 1.15fr 1.85fr; font-size:0.82em">
+              <div class="gt-head">Model</div><div class="gt-head">Notes</div>
+              <div class="gt-accent">ms-marco-MiniLM-L-6-v2</div><div>Our build: 6-layer MiniLM on MS MARCO, fast. The <code>L-12-v2</code> variant is more accurate, slower.</div>
+              <div>BAAI bge-reranker-v2-m3</div><div>Open weights, multilingual, larger and stronger.</div>
+              <div>jina-reranker-v2, mxbai-rerank</div><div>Other strong open-weight rerankers.</div>
+              <div>Cohere Rerank, Voyage, Pinecone</div><div>Managed API rerankers (100+ languages).</div>
+            </div>
+            <div class="callout" style="margin-top:8px"><span class="label">Swappable</span>All are cross-encoders, so you can drop any one in without changing the two-stage retrieve-then-rerank pattern.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Contextual retrieval named -->
+    <section>
+      <h2><span class="eyebrow">Further upgrades</span>Named, so you know they exist</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.08em; color:var(--c-accent-dark); margin:0 0 12px">Parent-document retrieval</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">Search over small, precise chunks, but hand the model the larger parent section they came from, so it gets both a sharp match and enough surrounding context.</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.08em; color:var(--c-accent-dark); margin:0 0 12px">Contextual retrieval</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">Before embedding, prepend a short description of where each chunk sits in its document. The chunk becomes self-describing, so retrieval matches it more reliably.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The pattern behind all of them</span>Every upgrade so far improves <em>what you retrieve</em>. That is worth a lot, and it has a ceiling, which is the next slide.</div>
+      </div>
+    </section>
+
+    <!-- 7b. HyDE -->
+    <section>
+      <h2><span class="eyebrow">Advanced architecture</span>HyDE: search with a hypothetical answer</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A short question and the passage that answers it often use different words, so their embeddings sit far apart. HyDE (Hypothetical Document Embeddings) closes that gap.</p>
+            <p class="stmt">Ask the model to draft a hypothetical answer to the question. It may contain errors; that does not matter. Embed that draft and retrieve the real passages nearest to it. The draft reads like the target documents, so it lands in the right neighborhood.</p>
+            <div class="callout"><span class="label">The cost</span>Two LLM calls per query, one to draft and one to answer, plus retrieval. It runs at query time, so it adds latency to every question.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="80" y="16" width="160" height="30" rx="7" fill="#ecfdf5" stroke="#10b981"/><text x="160" y="35" text-anchor="middle" font-size="10.5" fill="#065f46">user question</text>
+              <line x1="160" y1="46" x2="160" y2="66" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46f)"/>
+              <rect x="45" y="68" width="230" height="42" rx="7" fill="#fff7ed" stroke="#f59e0b"/><text x="160" y="88" text-anchor="middle" font-size="10.5" fill="#7c2d12">LLM drafts a hypothetical answer</text><text x="160" y="102" text-anchor="middle" font-size="9" fill="#9a5b1e">may be imperfect, that is fine</text>
+              <line x1="160" y1="110" x2="160" y2="130" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46f)"/>
+              <rect x="80" y="132" width="160" height="30" rx="7" fill="#eff6ff" stroke="#2563eb"/><text x="160" y="151" text-anchor="middle" font-size="10.5" fill="#1e40af">embed the draft</text>
+              <line x1="160" y1="162" x2="160" y2="182" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46f)"/>
+              <rect x="55" y="184" width="210" height="34" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="205" text-anchor="middle" font-size="10.5" fill="#3730a3">retrieve real passages near it</text>
+              <defs><marker id="a46f" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7c. HyPE -->
+    <section>
+      <h2><span class="eyebrow">Advanced architecture</span>HyPE: match question to question</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">HyPE (Hypothetical Prompt Embeddings) flips HyDE: do the generating once, at indexing time, not on every query.</p>
+            <p class="stmt">For each chunk, ask the model to write a few questions that chunk would answer. Embed those questions and store them pointing back to the chunk. At query time the user's real question matches a stored question, question to question, and returns its chunk.</p>
+            <div class="callout"><span class="label">The trade-off</span>The cost moves offline: query time is a plain retrieve, no extra call. In return the index grows, several question vectors per chunk, and indexing does more work up front.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="14" text-anchor="middle" font-size="10.5" font-weight="700" fill="#6d28d9">index time (once)</text>
+              <rect x="70" y="22" width="180" height="28" rx="7" fill="#faf5ff" stroke="#7c3aed"/><text x="160" y="40" text-anchor="middle" font-size="10" fill="#5b21b6">a document chunk</text>
+              <line x1="160" y1="50" x2="160" y2="66" stroke="#7c3aed" stroke-width="1.6" marker-end="url(#a46g)"/>
+              <rect x="45" y="68" width="230" height="40" rx="7" fill="#fff7ed" stroke="#f59e0b"/><text x="160" y="86" text-anchor="middle" font-size="10" fill="#7c2d12">LLM writes questions it answers</text><text x="160" y="100" text-anchor="middle" font-size="9" fill="#9a5b1e">embed and store, each points to the chunk</text>
+              <line x1="160" y1="120" x2="160" y2="140" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <text x="160" y="154" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1d4ed8">query time (every question)</text>
+              <rect x="55" y="160" width="210" height="28" rx="7" fill="#ecfdf5" stroke="#10b981"/><text x="160" y="178" text-anchor="middle" font-size="10" fill="#065f46">user question (plain retrieve)</text>
+              <line x1="160" y1="188" x2="160" y2="204" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a46g)"/>
+              <rect x="45" y="206" width="230" height="30" rx="7" fill="#eff6ff" stroke="#2563eb"/><text x="160" y="225" text-anchor="middle" font-size="10" fill="#1e40af">matches a stored question, returns its chunk</text>
+              <defs><marker id="a46g" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7d. Advanced RAG architectures overview -->
+    <section>
+      <h2><span class="eyebrow">The wider map</span>Four more RAG architectures, in one line each</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Beyond query-side tricks, these reshape retrieval itself. Named here so you can recognize and reach for them; the deeper study is in this module's suggested reading.</p>
+        <div class="grid-table" style="grid-template-columns: 0.9fr 2.1fr; font-size:0.9em">
+          <div class="gt-head">Architecture</div><div class="gt-head">What it adds</div>
+          <div class="gt-accent">RAG-fusion</div><div>Run several variants of the query, retrieve for each, then merge the rankings (reciprocal rank fusion) into one stronger list.</div>
+          <div class="gt-accent">Corrective RAG (CRAG)</div><div>Grade the retrieved passages first; if they look weak, re-search or fall back before generating, instead of answering from bad context.</div>
+          <div class="gt-accent">GraphRAG</div><div>Build a knowledge graph of entities and relations from the corpus, then retrieve over the graph for multi-hop and whole-corpus questions.</div>
+          <div class="gt-accent">Agentic RAG</div><div>The model decides when and what to retrieve, and can loop and call other tools. This is the bridge to Module 5 (AI Agents).</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">How to hold this</span>Query-side (rewrite, HyDE, HyPE) improves the question; structure-side (fusion, CRAG, GraphRAG) improves retrieval; agentic hands control to the model. Reach for one only when a real failure calls for it.</div>
+      </div>
+    </section>
+
+    <!-- 8. Where RAG breaks -->
+    <section>
+      <h2><span class="eyebrow">The honest limit</span>Where RAG breaks</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">RAG answers questions <em>from documents</em>. It cannot take an action, call a tool, or run a multi-step task. Some requests are not retrieval problems at all, and no amount of better retrieval will solve them.</p>
+            <div class="callout"><span class="label">Misconception</span>"Better retrieval fixes everything." It does not. "Issue the refund and email the customer" needs the system to <em>act</em>, not just to find a passage.</div>
+            <div class="callout"><span class="label">Where agents begin</span>Acting on a request, calling tools, and running several steps is exactly what an agent does. That is Module 5 (AI Agents), where this retriever becomes the agent's first tool.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="16" y="24" width="288" height="34" rx="7" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="160" y="45" text-anchor="middle" font-size="10.5" fill="#065f46">"What is the refund policy?"  -&gt; RAG answers &#10003;</text>
+              <rect x="16" y="70" width="288" height="34" rx="7" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="160" y="91" text-anchor="middle" font-size="10.5" fill="#065f46">"How do I export invoices?"  -&gt; RAG answers &#10003;</text>
+              <rect x="16" y="120" width="288" height="52" rx="7" fill="#fee2e2" stroke="#be123c"/>
+              <text x="160" y="140" text-anchor="middle" font-size="10.5" fill="#7f1d1d">"Issue the refund and email the customer."</text>
+              <text x="160" y="158" text-anchor="middle" font-size="10.5" fill="#7f1d1d">RAG cannot act &#10007;  -&gt; needs an agent</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Build + A/B -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Refactor, upgrade, and A/B against class 4.5</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Rebuild the assistant on LCEL with a Chroma store over the same real IRS corpus, add query rewriting and a cross-encoder re-ranker, then measure: run a small set of labeled questions through the naive class 4.5 (RAG from scratch) pipeline and the upgraded one, and compare how often the right passage is retrieved.</p>
+            <ul class="tight">
+              <li>LCEL chain over a Chroma vector store.</li>
+              <li>A query-rewrite step before retrieval.</li>
+              <li>A cross-encoder re-ranker after retrieval.</li>
+              <li>A HyDE variant: retrieve with a hypothetical answer.</li>
+              <li>Report the retrieval-quality delta, naive vs upgraded.</li>
+            </ul>
+            <div class="callout"><span class="label">Reading hit@3</span>hit@k is the fraction of test questions whose correct passage lands in the top k retrieved; hit@3 means "in the top 3." The numbers shown are an illustrative example, not measured here; you measure the real delta when you run the build. Systematic RAG and LLM evaluation is class 4.8 (Evaluating LLM and RAG).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="30" y="30" width="120" height="34" rx="7" fill="#fee2e2" stroke="#be123c"/><text x="90" y="51" text-anchor="middle" font-size="10.5" fill="#7f1d1d">naive (4.5)</text>
+              <rect x="170" y="30" width="120" height="34" rx="7" fill="#ecfdf5" stroke="#10b981"/><text x="230" y="51" text-anchor="middle" font-size="10.5" fill="#065f46">upgraded (4.6)</text>
+              <rect x="80" y="86" width="160" height="30" rx="7" fill="#f8fafc" stroke="#94a3b8"/><text x="160" y="105" text-anchor="middle" font-size="10" fill="#3f4a63">same labeled questions</text>
+              <line x1="90" y1="64" x2="150" y2="86" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a46c)"/>
+              <line x1="230" y1="64" x2="170" y2="86" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a46c)"/>
+              <rect x="55" y="140" width="90" height="34" rx="7" fill="#fee2e2" stroke="#be123c"/><text x="100" y="161" text-anchor="middle" font-size="10.5" fill="#7f1d1d">hit@3: 0.83</text>
+              <rect x="175" y="140" width="90" height="34" rx="7" fill="#dcfce7" stroke="#047857"/><text x="220" y="161" text-anchor="middle" font-size="10.5" fill="#065f46">hit@3: 1.00</text>
+              <text x="160" y="192" text-anchor="middle" font-size="9" fill="#94a3b8">illustrative example, not measured</text>
+              <defs><marker id="a46c" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#94a3b8"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Refactor a RAG loop onto LangChain with LCEL.</li>
+              <li>Rewrite vague queries before retrieval.</li>
+              <li>Re-rank candidates with a cross-encoder.</li>
+              <li>Measure a retrieval-quality delta, not guess it.</li>
+              <li>Say clearly where RAG stops being enough.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Report the retrieval-quality delta between the naive and the upgraded pipeline on a small labeled set, and state which upgrade helped most.</p>
+            <div class="callout"><span class="label">Next, Module 5</span>Agents: give the assistant tools and a loop so it can act, not just retrieve and answer. The retriever you built becomes its first tool.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
