@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.7 - How LLMs are served</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.7</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.7</span>
+      <h1>How LLMs are served</h1>
+      <p class="lead">The same prompt can be instant or slow, cheap or costly, depending on how the model is run. Mostly pictures, with a few simple formulas where they make the idea concrete.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Don't recompute the past<span class="step-note">KV cache and prompt caching.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Cheaper attention<span class="step-note">GQA and MQA, Flash Attention.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Fewer bits<span class="step-note">Quantization, why a laptop can run it.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Draft, then verify<span class="step-note">Speculative decoding.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">Hardware<span class="step-note">Why Groq is so fast.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Same prompt, different bill</span>These techniques are why one prompt is instant and free on your laptop and metered on a frontier API. Knowing them is how you choose a setup and control cost.</div>
+            <div class="pill"><span class="pill-tag">Picture first, then a formula</span>Each idea is a picture, with one simple formula where it sharpens things. The attention it builds on is class 3.2 (Attention).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Frame -->
+    <section>
+      <h2><span class="eyebrow">The frame</span>Why it is slow, and what the bill is</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A model writes one token at a time, and each new token is a full pass over everything so far. So two numbers decide the experience: <strong>latency</strong> (how long you wait) and <strong>cost</strong> (what you pay), both counted in tokens.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:280px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="40" width="250" height="60" rx="10" fill="#eff6ff" stroke="#2563eb"/>
+            <text x="145" y="66" text-anchor="middle" font-size="12" font-weight="700" fill="#1e40af">prefill</text>
+            <text x="145" y="85" text-anchor="middle" font-size="10.5" fill="#3f4a63">read the whole prompt once</text>
+            <text x="145" y="120" text-anchor="middle" font-size="10" fill="#6b7793">sets time-to-first-token</text>
+            <line x1="270" y1="70" x2="320" y2="70" stroke="#2563eb" stroke-width="2" marker-end="url(#a47)"/>
+            <rect x="322" y="40" width="470" height="60" rx="10" fill="#faf5ff" stroke="#7c3aed"/>
+            <text x="557" y="62" text-anchor="middle" font-size="12" font-weight="700" fill="#5b21b6">decode: one token at a time</text>
+            <g fill="#fff" stroke="#7c3aed">
+              <rect x="340" y="72" width="40" height="20" rx="4"/><rect x="386" y="72" width="40" height="20" rx="4"/><rect x="432" y="72" width="40" height="20" rx="4"/><rect x="478" y="72" width="40" height="20" rx="4"/><rect x="524" y="72" width="40" height="20" rx="4"/>
+            </g>
+            <text x="700" y="87" font-size="10.5" fill="#5b21b6">... each box is one forward pass</text>
+            <text x="557" y="120" text-anchor="middle" font-size="10" fill="#6b7793">sets per-token speed (throughput)</text>
+            <text x="450" y="165" text-anchor="middle" font-size="13" fill="#3f4a63">Latency is roughly tokens times time-per-token. Cost is roughly tokens times price-per-token.</text>
+            <text x="450" y="188" text-anchor="middle" font-size="12.5" fill="#047857">Every trick today does one of two things: make a token cheaper, or avoid redoing work.</text>
+            <defs><marker id="a47" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">As formulas</span>Latency \( \approx T_{\text{prefill}} + N_{\text{out}} \cdot t_{\text{tok}} \) and cost \( \approx N_{\text{in}} \cdot p_{\text{in}} + N_{\text{out}} \cdot p_{\text{out}} \). Here \(N_{\text{in}}\) and \(N_{\text{out}}\) are the input and output token counts, \(T_{\text{prefill}}\) is the time to read the prompt (time to first token), \(t_{\text{tok}}\) is the time per output token, and \(p_{\text{in}}, p_{\text{out}}\) are the per-token prices. Both scale with token counts, which is why tokens are the unit of speed and cost.</div>
+      </div>
+    </section>
+
+    <!-- 3b. TTFT and throughput -->
+    <section>
+      <h2><span class="eyebrow">Two numbers</span>Time to first token, and throughput</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Serving latency splits into two numbers a user actually feels, and different techniques move each one.</p>
+            <div class="callout"><span class="label">Time to first token (TTFT)</span>The wait until the first token appears. It is the prefill cost, reading your whole prompt before anything comes back, and it is what makes a chat feel responsive. Lower TTFT is exactly what Groq's hardware targets.</div>
+            <div class="callout"><span class="label">Throughput</span>Once tokens start, how many arrive per second (the decode speed). It sets the total time for a long answer. So total \( \approx \text{TTFT} + N_{\text{out}} / R \), where \(N_{\text{out}}\) is the number of output tokens and \(R\) is throughput in tokens per second. GQA and MQA, quantization, and speculative decoding all push \(R\) up.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="170" y="20" text-anchor="middle" font-size="11" font-weight="700" fill="#3f4a63">one request, over time</text>
+              <rect x="30" y="58" width="100" height="30" rx="6" fill="#fee2e2" stroke="#be123c"/>
+              <text x="80" y="77" text-anchor="middle" font-size="10.5" fill="#7f1d1d">prefill</text>
+              <line x1="30" y1="98" x2="130" y2="98" stroke="#be123c" stroke-width="1.4"/>
+              <text x="80" y="112" text-anchor="middle" font-size="10" fill="#be123c">time to first token</text>
+              <g fill="#dcfce7" stroke="#16a34a">
+                <rect x="140" y="58" width="20" height="30" rx="4"/><rect x="166" y="58" width="20" height="30" rx="4"/><rect x="192" y="58" width="20" height="30" rx="4"/><rect x="218" y="58" width="20" height="30" rx="4"/><rect x="244" y="58" width="20" height="30" rx="4"/>
+              </g>
+              <text x="202" y="46" text-anchor="middle" font-size="10" fill="#065f46">tokens stream out</text>
+              <line x1="140" y1="98" x2="264" y2="98" stroke="#16a34a" stroke-width="1.4"/>
+              <text x="202" y="112" text-anchor="middle" font-size="10" fill="#065f46">gap = 1 / throughput</text>
+              <text x="170" y="150" text-anchor="middle" font-size="12" fill="#3f4a63">total wait = TTFT + (output tokens / throughput)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3c. Hardware mental model -->
+    <section>
+      <h2><span class="eyebrow">The hardware</span>A mental model of the accelerator</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">One picture explains most of today. A GPU (or a TPU, or Groq's LPU) is a lot of <strong>compute</strong> plus two kinds of <strong>memory</strong>.</p>
+            <div class="callout"><span class="label">Two memories</span><strong>HBM</strong> (high-bandwidth memory): large, and high bandwidth (much data per second) compared to ordinary computer RAM, but off-chip, so still slower to reach than on-chip memory. <strong>SRAM</strong> (on-chip static memory): tiny, but very fast, right next to the compute. So "slow" here is relative to SRAM, not absolute: HBM's bandwidth, high as it is, is still the ceiling the model runs into. The GPU's <strong>VRAM</strong> is this HBM tier (the memory you size a model to fit); SRAM is the small on-chip memory, not VRAM.</div>
+            <div class="callout"><span class="label">Inference is memory-bound</span>Generating a token does little arithmetic but must move a lot of data, the weights and the growing KV cache, from HBM to the compute. The wait is that movement, not the math. So almost every trick today either moves <em>less</em> data or moves it a <em>shorter</em> distance.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="70" width="90" height="80" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="65" y="104" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">HBM</text>
+              <text x="65" y="122" text-anchor="middle" font-size="9.5" fill="#64748b">large, slow</text>
+              <text x="65" y="136" text-anchor="middle" font-size="9.5" fill="#64748b">off-chip</text>
+              <rect x="160" y="40" width="160" height="140" rx="10" fill="#eef2ff" stroke="#6366f1"/>
+              <text x="240" y="34" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3730a3">the chip</text>
+              <rect x="175" y="58" width="130" height="52" rx="7" fill="#dbeafe" stroke="#2563eb"/>
+              <text x="240" y="89" text-anchor="middle" font-size="11" fill="#1e40af">compute</text>
+              <rect x="175" y="120" width="130" height="44" rx="7" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="240" y="140" text-anchor="middle" font-size="10" fill="#065f46">SRAM</text>
+              <text x="240" y="154" text-anchor="middle" font-size="9" fill="#166534">on-chip, fast</text>
+              <line x1="110" y1="95" x2="173" y2="84" stroke="#be123c" stroke-width="2.4" marker-end="url(#a47h)"/>
+              <text x="170" y="205" text-anchor="middle" font-size="10" fill="#be123c">moving weights and KV from HBM is the bottleneck</text>
+              <defs><marker id="a47h" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#be123c"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. KV cache -->
+    <section>
+      <h2><span class="eyebrow">Don't redo work</span>The KV cache</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">To write the next token, attention needs the keys and values of every earlier token (class 3.2, Attention). Recomputing them at every step repeats the same work again and again.</p>
+            <p class="stmt">The <strong>KV cache</strong> stores those past keys and values. Each step then computes only the new token and reads the cache, instead of re-reading the whole history. This is the single biggest reason generation is practical.</p>
+            <div class="callout"><span class="label">The cost it creates</span>The cache grows with the conversation, one slot per token, so a long chat is what fills up GPU memory. Shrinking it is the next two ideas.</div>
+            <div class="callout"><span class="label">Why it is a big win</span>To produce \(N\) tokens, redoing the key and value work every step sums to \(1 + 2 + \cdots + N = \tfrac{N(N+1)}{2} \approx \tfrac{N^2}{2}\); with the cache each token's keys and values are computed once, about \(N\). That is quadratic redundant work turned into linear (\(N\) is the number of tokens).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="90" y="20" text-anchor="middle" font-size="11" font-weight="700" fill="#be123c">without cache</text>
+              <text x="90" y="36" text-anchor="middle" font-size="9.5" fill="#7f1d1d">recompute all K,V each step</text>
+              <g fill="#fee2e2" stroke="#be123c">
+                <rect x="40" y="46" width="26" height="20" rx="3"/><rect x="70" y="46" width="26" height="20" rx="3"/><rect x="100" y="46" width="26" height="20" rx="3"/>
+                <rect x="40" y="72" width="26" height="20" rx="3"/><rect x="70" y="72" width="26" height="20" rx="3"/><rect x="100" y="72" width="26" height="20" rx="3"/><rect x="130" y="72" width="26" height="20" rx="3"/>
+                <rect x="40" y="98" width="26" height="20" rx="3"/><rect x="70" y="98" width="26" height="20" rx="3"/><rect x="100" y="98" width="26" height="20" rx="3"/><rect x="130" y="98" width="26" height="20" rx="3"/><rect x="160" y="98" width="26" height="20" rx="3"/>
+              </g>
+              <text x="250" y="86" text-anchor="middle" font-size="9.5" fill="#7f1d1d">work grows</text>
+              <text x="250" y="100" text-anchor="middle" font-size="9.5" fill="#7f1d1d">every step</text>
+
+              <text x="90" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">with cache</text>
+              <text x="90" y="166" text-anchor="middle" font-size="9.5" fill="#065f46">store past K,V, add one</text>
+              <g fill="#dcfce7" stroke="#047857">
+                <rect x="40" y="176" width="26" height="20" rx="3"/><rect x="70" y="176" width="26" height="20" rx="3"/><rect x="100" y="176" width="26" height="20" rx="3"/><rect x="130" y="176" width="26" height="20" rx="3"/>
+              </g>
+              <rect x="160" y="176" width="26" height="20" rx="3" fill="#16a34a" stroke="#047857"/>
+              <text x="173" y="190" text-anchor="middle" font-size="10" fill="#fff">+1</text>
+              <text x="250" y="190" text-anchor="middle" font-size="9.5" fill="#065f46">only the new token</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4b. PagedAttention -->
+    <section>
+      <h2><span class="eyebrow">Managing the cache</span>PagedAttention: the KV cache in pages</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The KV cache grows as a conversation runs, and you do not know its final length in advance. Reserving one big contiguous block per request wastes memory when the answer is short, and leaves gaps too small to reuse when requests come and go.</p>
+            <div class="callout"><span class="label">The idea</span><strong>PagedAttention</strong> stores the KV cache in small fixed-size <em>pages</em> that need not sit next to each other, with a table mapping each request's positions to physical pages, exactly like an operating system's virtual memory. A page is allocated only when it is needed, so there is no over-reservation and no fragmentation.</div>
+            <div class="callout"><span class="label">Why it matters</span>More requests fit in the same memory, so batch throughput rises, and a shared prefix can point several requests at the same pages. This is what powers the vLLM serving library.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 230" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="170" y="20" text-anchor="middle" font-size="11" font-weight="700" fill="#be123c">contiguous: over-reserve and fragment</text>
+              <rect x="20" y="34" width="150" height="24" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="95" y="50" text-anchor="middle" font-size="9" fill="#065f46">used</text>
+              <rect x="170" y="34" width="150" height="24" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-dasharray="4 3"/><text x="245" y="50" text-anchor="middle" font-size="9" fill="#94a3b8">reserved, wasted</text>
+
+              <text x="170" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#047857">paged: allocate pages on demand</text>
+              <g fill="#dcfce7" stroke="#16a34a">
+                <rect x="20" y="112" width="40" height="26" rx="4"/><rect x="92" y="112" width="40" height="26" rx="4"/><rect x="176" y="112" width="40" height="26" rx="4"/><rect x="252" y="112" width="40" height="26" rx="4"/>
+              </g>
+              <text x="170" y="158" text-anchor="middle" font-size="9.5" fill="#166534">pages, non-contiguous, only as many as needed</text>
+              <rect x="60" y="176" width="220" height="30" rx="6" fill="#eef2ff" stroke="#6366f1"/>
+              <text x="170" y="195" text-anchor="middle" font-size="9.5" fill="#3730a3">page table maps positions to physical pages</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Prompt caching -->
+    <section>
+      <h2><span class="eyebrow">Don't redo work</span>Prompt caching: reuse the prefix</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The KV cache saves work <em>within</em> one answer. <strong>Prompt caching</strong> saves it <em>across</em> calls. The processed prefix, a long system prompt or a shared document, is stored, so the next call that starts the same way skips re-reading it and pays only for the new part.</p>
+            <div class="callout"><span class="label">Why it matters</span>A fixed system prompt or a pasted policy is sent on every request. Cached, that shared prefix is processed once, so repeated calls get cheaper and faster. Providers such as Groq, Gemini, and others expose this.</div>
+            <div class="callout"><span class="label">The pricing, made explicit</span>The saving is on the bill too: frontier APIs charge cached-prefix input tokens at a steep discount, often roughly 10 to 25 percent of the normal input rate. So cost \( \approx N_{\text{new}} \cdot p_{\text{in}} + N_{\text{cached}} \cdot p_{\text{cached}} \), where \(N_{\text{cached}}\) is the reused prefix tokens billed at the lower \(p_{\text{cached}}\) and \(N_{\text{new}}\) is only the new part. A long, stable prefix is where this pays off most.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="30" y="30" width="180" height="26" rx="5" fill="#e0e7ff" stroke="#6366f1"/>
+              <text x="120" y="47" text-anchor="middle" font-size="10" fill="#3730a3">shared prefix (system prompt)</text>
+              <rect x="30" y="62" width="90" height="24" rx="5" fill="#ecfdf5" stroke="#10b981"/><text x="75" y="79" text-anchor="middle" font-size="9.5" fill="#065f46">call 1 question</text>
+              <rect x="30" y="120" width="180" height="26" rx="5" fill="#eef2ff" stroke="#6366f1" stroke-dasharray="4 3"/>
+              <text x="120" y="137" text-anchor="middle" font-size="10" fill="#3730a3">same prefix (from cache)</text>
+              <rect x="30" y="152" width="90" height="24" rx="5" fill="#ecfdf5" stroke="#10b981"/><text x="75" y="169" text-anchor="middle" font-size="9.5" fill="#065f46">call 2 question</text>
+              <text x="285" y="112" text-anchor="middle" font-size="9.5" fill="#6b7793">processed</text>
+              <text x="285" y="126" text-anchor="middle" font-size="9.5" fill="#6b7793">once</text>
+              <line x1="215" y1="43" x2="255" y2="120" stroke="#6366f1" stroke-width="1.4" marker-end="url(#a47b)"/>
+              <text x="230" y="196" text-anchor="middle" font-size="10.5" fill="#047857">call 2 pays only for its new question</text>
+              <defs><marker id="a47b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6366f1"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. GQA / MQA -->
+    <section>
+      <h2><span class="eyebrow">Cheaper attention</span>GQA and MQA: share the keys and values</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Attention runs several <strong>heads</strong> in parallel (class 3.3, The Transformer). In standard <strong>multi-head attention (MHA)</strong> each head keeps its own keys and values, so the KV cache holds a full set per head. Sharing those key and value projections shrinks the cache: <strong>multi-query attention (MQA)</strong> lets all heads share one set, and <strong>grouped-query attention (GQA)</strong> shares one set per small group of heads. Smaller cache, faster decoding, for a small quality cost.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 210" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:260px" font-family="Segoe UI, Arial, sans-serif">
+            <text x="150" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#1e40af">MHA: one KV per head</text>
+            <g font-size="9" text-anchor="middle">
+              <g fill="#dbeafe" stroke="#2563eb"><rect x="40" y="40" width="30" height="22" rx="3"/><rect x="80" y="40" width="30" height="22" rx="3"/><rect x="120" y="40" width="30" height="22" rx="3"/><rect x="160" y="40" width="30" height="22" rx="3"/><rect x="200" y="40" width="30" height="22" rx="3"/><rect x="240" y="40" width="30" height="22" rx="3"/></g>
+              <g fill="#eff6ff" stroke="#93b4ef"><rect x="40" y="70" width="30" height="18" rx="3"/><rect x="80" y="70" width="30" height="18" rx="3"/><rect x="120" y="70" width="30" height="18" rx="3"/><rect x="160" y="70" width="30" height="18" rx="3"/><rect x="200" y="70" width="30" height="18" rx="3"/><rect x="240" y="70" width="30" height="18" rx="3"/></g>
+            </g>
+            <text x="155" y="106" text-anchor="middle" font-size="9.5" fill="#3f4a63">6 heads, 6 KV sets (biggest cache)</text>
+
+            <text x="450" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#6d28d9">GQA: groups share KV</text>
+            <g font-size="9" text-anchor="middle">
+              <g fill="#f3e8ff" stroke="#7c3aed"><rect x="350" y="40" width="30" height="22" rx="3"/><rect x="390" y="40" width="30" height="22" rx="3"/><rect x="430" y="40" width="30" height="22" rx="3"/><rect x="470" y="40" width="30" height="22" rx="3"/><rect x="510" y="40" width="30" height="22" rx="3"/><rect x="550" y="40" width="30" height="22" rx="3"/></g>
+              <g fill="#faf5ff" stroke="#a78bda"><rect x="380" y="70" width="60" height="18" rx="3"/><rect x="490" y="70" width="60" height="18" rx="3"/></g>
+            </g>
+            <text x="465" y="106" text-anchor="middle" font-size="9.5" fill="#3f4a63">6 heads, 2 KV groups (middle ground; Llama)</text>
+
+            <text x="760" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#047857">MQA: all share one KV</text>
+            <g font-size="9" text-anchor="middle">
+              <g fill="#dcfce7" stroke="#16a34a"><rect x="660" y="40" width="30" height="22" rx="3"/><rect x="700" y="40" width="30" height="22" rx="3"/><rect x="740" y="40" width="30" height="22" rx="3"/><rect x="780" y="40" width="30" height="22" rx="3"/><rect x="820" y="40" width="30" height="22" rx="3"/><rect x="860" y="40" width="30" height="22" rx="3"/></g>
+              <rect x="740" y="70" width="60" height="18" rx="3" fill="#ecfdf5" stroke="#86efac"/>
+            </g>
+            <text x="775" y="106" text-anchor="middle" font-size="9.5" fill="#3f4a63">6 heads, 1 KV set (smallest, fastest)</text>
+
+            <text x="450" y="150" text-anchor="middle" font-size="12" fill="#3f4a63">Top row = query heads. Bottom row = key and value sets. Fewer KV sets means a smaller cache and faster decoding.</text>
+            <text x="450" y="176" text-anchor="middle" font-size="12" fill="#047857">MQA is fastest but drops the most quality; GQA is the common compromise.</text>
+          </svg>
+        </div>
+        <div class="callout"><span class="label">The size, as a formula</span>KV cache \( \approx 2 \cdot L \cdot n_{kv} \cdot d_{\text{head}} \cdot N \cdot b \) bytes: the 2 is keys and values, \(L\) is the number of layers, \(n_{kv}\) the number of key/value sets, \(d_{\text{head}}\) the size of one head, \(N\) the tokens in context, and \(b\) the bytes per number. Only \(n_{kv}\) changes here: MHA uses \(n_{kv} = n_{\text{heads}}\), MQA uses \(n_{kv} = 1\), GQA a few groups. So MQA shrinks the cache by about \(n_{\text{heads}}\times\) (32 heads means roughly 32 times smaller).</div>
+      </div>
+    </section>
+
+    <!-- 7a. Flash Attention: the bottleneck -->
+    <section>
+      <h2><span class="eyebrow">Cheaper attention</span>Flash Attention: the memory bottleneck</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Attention (class 3.2) computes a score for every token against every other: \( S = Q K^{\top} \) is an \( N \times N \) matrix, where \(N\) is the sequence length. Standard attention <strong>writes that whole matrix to HBM</strong>, reads it back to softmax it into \(P\), writes \(P\), then reads \(P\) and \(V\) to form the output \(O = P V\).</p>
+            <div class="callout"><span class="label">Why this is the cost</span>The arithmetic is cheap; the round trips are not. \(S\) and \(P\) are \(N \times N\), so at long context they are huge, and moving them to and from HBM again and again is the bottleneck (memory-bound, from the hardware slide). It also means memory grows like \(N^2\).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 250" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="36" width="90" height="180" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="65" y="58" text-anchor="middle" font-size="10.5" font-weight="700" fill="#475569">HBM</text>
+              <text x="65" y="74" text-anchor="middle" font-size="8.5" fill="#64748b">Q K V,</text>
+              <text x="65" y="86" text-anchor="middle" font-size="8.5" fill="#be123c">S, P (N x N)</text>
+              <rect x="230" y="36" width="90" height="180" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+              <text x="275" y="130" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1e40af">compute</text>
+              <g font-size="8.5">
+                <line x1="112" y1="64" x2="228" y2="64" stroke="#2563eb" stroke-width="1.5" marker-end="url(#fr)"/><text x="170" y="59" text-anchor="middle" fill="#1e40af">load Q, K</text>
+                <line x1="228" y1="92" x2="112" y2="92" stroke="#be123c" stroke-width="1.5" marker-end="url(#fl)"/><text x="170" y="87" text-anchor="middle" fill="#be123c">write S (N x N)</text>
+                <line x1="112" y1="120" x2="228" y2="120" stroke="#2563eb" stroke-width="1.5" marker-end="url(#fr)"/><text x="170" y="115" text-anchor="middle" fill="#1e40af">load S, softmax</text>
+                <line x1="228" y1="148" x2="112" y2="148" stroke="#be123c" stroke-width="1.5" marker-end="url(#fl)"/><text x="170" y="143" text-anchor="middle" fill="#be123c">write P (N x N)</text>
+                <line x1="112" y1="176" x2="228" y2="176" stroke="#2563eb" stroke-width="1.5" marker-end="url(#fr)"/><text x="170" y="171" text-anchor="middle" fill="#1e40af">load P, V</text>
+                <line x1="228" y1="204" x2="112" y2="204" stroke="#64748b" stroke-width="1.5" marker-end="url(#fg)"/><text x="170" y="199" text-anchor="middle" fill="#475569">write O</text>
+              </g>
+              <text x="170" y="236" text-anchor="middle" font-size="10" fill="#be123c">the N x N matrix crosses to HBM and back, over and over</text>
+              <defs>
+                <marker id="fr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+                <marker id="fl" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#be123c"/></marker>
+                <marker id="fg" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7b. Flash Attention: tile and fuse -->
+    <section>
+      <h2><span class="eyebrow">Cheaper attention</span>Flash Attention: tile it, fuse it</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>Flash Attention</strong> never builds the full \(N \times N\) matrix. It splits \(Q\), \(K\), \(V\) into small <strong>blocks</strong> that fit in fast on-chip SRAM, and for each pair of blocks runs one fused kernel entirely in SRAM.</p>
+            <div class="callout"><span class="label">Inside the fused kernel, per block</span>Score the block: \( S_{ij} = Q_i K_j^{\top} \). Softmax it to \( P_{ij} \). Accumulate the output: \( O_i \gets O_i + P_{ij} V_j \). All in SRAM; the \(N \times N\) matrices \(S\) and \(P\) are never written to HBM. Only the blocks in and \(O\) out cross, plus two tiny per-row running numbers (next slide).</div>
+            <div class="callout"><span class="label">Same answer</span>This is <strong>exact</strong>, not an approximation: identical numbers to standard attention, with far less HBM traffic and no \(N \times N\) memory, so much longer contexts fit.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 240" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="44" width="90" height="150" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="65" y="66" text-anchor="middle" font-size="10.5" font-weight="700" fill="#475569">HBM</text>
+              <text x="65" y="84" text-anchor="middle" font-size="8.5" fill="#64748b">Q K V, O</text>
+              <rect x="185" y="44" width="135" height="150" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="252" y="70" text-anchor="middle" font-size="10.5" font-weight="700" fill="#065f46">SRAM: fused kernel</text>
+              <text x="252" y="98" text-anchor="middle" font-size="9.5" fill="#065f46">score the block</text>
+              <text x="252" y="118" text-anchor="middle" font-size="9.5" fill="#065f46">softmax the block</text>
+              <text x="252" y="138" text-anchor="middle" font-size="9.5" fill="#065f46">accumulate the output</text>
+              <text x="252" y="164" text-anchor="middle" font-size="8.5" fill="#166534">all in SRAM</text>
+              <line x1="112" y1="92" x2="183" y2="92" stroke="#2563eb" stroke-width="1.6" marker-end="url(#fr2)"/><text x="147" y="86" text-anchor="middle" font-size="8.5" fill="#1e40af">load blocks</text>
+              <line x1="183" y1="146" x2="112" y2="146" stroke="#16a34a" stroke-width="1.6" marker-end="url(#fg2)"/><text x="147" y="140" text-anchor="middle" font-size="8.5" fill="#065f46">write only output</text>
+              <text x="170" y="220" text-anchor="middle" font-size="10" fill="#3f4a63">loop over blocks until every token is covered</text>
+              <defs>
+                <marker id="fr2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker>
+                <marker id="fg2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#16a34a"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7c. Online softmax -->
+    <section>
+      <h2><span class="eyebrow">The key trick</span>Online softmax: why tiling stays exact</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">There is a catch. Softmax needs the whole row at once: subtract the row's maximum (for numerical safety), then divide by the sum of exponentials. But tiling only ever sees one block of the row at a time. <strong>Online softmax</strong> fixes this by carrying two small running numbers per row and correcting as it goes.</p>
+        <div class="cols cols-2">
+          <div>
+            <div class="callout"><span class="label">The running state, per row</span>Keep the running max \(m\), the running sum \(l\), and the partial output \(O\). For each new block with scores \(s\):
+            <div style="margin-top:6px; font-size:0.92em">
+            \( m' = \max(m,\ \max s) \) &nbsp; (new max)<br>
+            \( c = e^{\,m - m'} \) &nbsp; (rescale old work to the new max)<br>
+            \( l' = c\,l + \sum e^{\,s - m'} \)<br>
+            \( O' = c\,O + e^{\,s - m'} V_{\text{block}} \)
+            </div></div>
+          </div>
+          <div>
+            <div class="callout"><span class="label">Finish and why it is exact</span>After the last block, divide once: \( O = O / l \). Because every earlier partial sum and output is rescaled by \(c = e^{m-m'}\) whenever the max grows, the final result equals the full-row softmax to the last digit. Nothing is approximated; the row is just accumulated in pieces.</div>
+            <div class="callout"><span class="label">Symbols</span>\(m\): largest score seen so far in the row. \(l\): running sum of exponentials. \(c\): correction factor that re-bases older terms when a bigger score appears. \(s\): the current block's scores.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Quantization -->
+    <section>
+      <h2><span class="eyebrow">Fewer bits</span>Quantization: shrink the weights</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A model is millions of numbers (weights). <strong>Quantization</strong> stores each in fewer bits, 8-bit or 4-bit instead of 16-bit, so the model takes less memory and moves through it faster, for a small accuracy cost.</p>
+            <div class="callout"><span class="label">Why a laptop can run it</span>A 7-billion-parameter model needs about 14 GB at 16-bit but only about 4 GB at 4-bit, small enough for a laptop. This is exactly what lets Ollama serve a capable model locally, and it underlies QLoRA in class 4.10 (Fine-tuning II).</div>
+            <div class="callout"><span class="label">The memory, as a formula</span>memory \( \approx P \times \tfrac{\text{bits}}{8} \) bytes, where \(P\) is the number of parameters and bits is the bits stored per weight. For \(P = 7\times10^{9}\): \(7\times10^{9} \times \tfrac{16}{8} = 14\) GB at 16-bit, and \(\times \tfrac{4}{8} = 3.5\) GB at 4-bit. Memory is linear in bits per weight, so 16-bit to 4-bit is a 4 times shrink.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="20" text-anchor="middle" font-size="11" font-weight="700" fill="#3f4a63">memory for a 7B model</text>
+              <rect x="40" y="40" width="240" height="30" rx="5" fill="#dbeafe" stroke="#2563eb"/><text x="160" y="60" text-anchor="middle" font-size="10.5" fill="#1e40af">16-bit: about 14 GB</text>
+              <rect x="40" y="90" width="140" height="30" rx="5" fill="#e0e7ff" stroke="#6366f1"/><text x="110" y="110" text-anchor="middle" font-size="10.5" fill="#3730a3">8-bit: about 7 GB</text>
+              <rect x="40" y="140" width="72" height="30" rx="5" fill="#dcfce7" stroke="#16a34a"/><text x="76" y="160" text-anchor="middle" font-size="10.5" fill="#065f46">4-bit: ~4 GB</text>
+              <text x="160" y="200" text-anchor="middle" font-size="10" fill="#6b7793">smaller footprint, faster memory access, slight accuracy cost</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8b. Quantization trade-off -->
+    <section>
+      <h2><span class="eyebrow">Fewer bits</span>Quantization: the cost, and when to use it</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The shrink is not free. Fewer bits means coarser weights, so accuracy drops: a little at 8-bit, more at 4-bit, and most on small models and precision-sensitive tasks (exact arithmetic, code, long chains of reasoning).</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Reach for it when</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">You need to fit a model on a laptop or a smaller, cheaper GPU; serving is memory-bound and a small quality dip is acceptable; you run locally with Ollama; or you fine-tune cheaply with QLoRA (class 4.10, Fine-tuning II).</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Be cautious when</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">The task is quality-critical or precision-sensitive; you already have the memory to run full precision; the model is small (the loss bites harder); or the work is compute-bound rather than memory-bound, so there is less to gain.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Rule of thumb</span>Measure, do not assume. Quantize, then check your evaluation set (class 4.8, Evaluating LLM and RAG), and ship the smallest precision that still passes.</div>
+      </div>
+    </section>
+
+    <!-- 9. Speculative decoding -->
+    <section>
+      <h2><span class="eyebrow">Draft, then verify</span>Speculative decoding</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Decoding one token at a time is slow because each token is a big-model pass. <strong>Speculative decoding</strong> puts a small, fast <strong>draft model</strong> to work: a much smaller model from the same family sharing the same tokenizer (say a 1B drafting for a 70B). It drafts several tokens ahead, and the big model checks all of them in a <em>single</em> pass (it scores every drafted position in parallel), keeping the longest correct run and fixing the first mistake.</p>
+            <div class="callout"><span class="label">Why it is safe and why it is faster</span>Output is <em>identical</em> to the big model alone, because the big model verifies every token. The win: one big-model pass confirms several tokens instead of one, and the draft is cheap. The tokenizer must match so the big model can score the exact drafted tokens.</div>
+            <div class="callout"><span class="label">When it pays, as a formula</span>Model each drafted token as accepted with probability \(\alpha\), for a draft of \(k\) tokens. The expected tokens per verification round is the geometric series \( 1 + \alpha + \alpha^2 + \cdots + \alpha^k = \tfrac{1 - \alpha^{\,k+1}}{1 - \alpha} \): term \(\alpha^i\) is the chance the run survives to depth \(i\), and the leading 1 is the big model's own guaranteed token. At \(\alpha = 1\) this limit is \(k+1\) (every draft accepted, the maximum); as \(\alpha \to 0\) it is about 1 (no gain).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="90" y="26" text-anchor="middle" font-size="10.5" font-weight="700" fill="#6d28d9">small model drafts 4</text>
+              <g font-size="9" text-anchor="middle" fill="#f3e8ff" stroke="#7c3aed">
+                <rect x="24" y="36" width="34" height="24" rx="4"/><rect x="66" y="36" width="34" height="24" rx="4"/><rect x="108" y="36" width="34" height="24" rx="4"/><rect x="150" y="36" width="34" height="24" rx="4"/>
+              </g>
+              <line x1="104" y1="66" x2="104" y2="92" stroke="#2563eb" stroke-width="1.6" marker-end="url(#a47c)"/>
+              <text x="104" y="108" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1e40af">big model verifies in 1 pass</text>
+              <g font-size="9" text-anchor="middle">
+                <rect x="24" y="120" width="34" height="24" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="41" y="136" fill="#065f46">ok</text>
+                <rect x="66" y="120" width="34" height="24" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="83" y="136" fill="#065f46">ok</text>
+                <rect x="108" y="120" width="34" height="24" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="125" y="136" fill="#065f46">ok</text>
+                <rect x="150" y="120" width="34" height="24" rx="4" fill="#fee2e2" stroke="#be123c"/><text x="167" y="136" fill="#7f1d1d">fix</text>
+              </g>
+              <text x="150" y="182" text-anchor="middle" font-size="10.5" fill="#047857">accept the 3 correct, correct the 4th</text>
+              <text x="150" y="200" text-anchor="middle" font-size="9.5" fill="#6b7793">3 tokens gained from 1 big-model pass</text>
+              <defs><marker id="a47c" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Why Groq is fast -->
+    <section>
+      <h2><span class="eyebrow">Hardware</span>Why Groq is so fast</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A general GPU is flexible, but it spends time moving weights from its large, slow memory and scheduling work on the fly. Groq's <strong>LPU</strong> (language processing unit) is built only for inference: it keeps weights in fast on-chip memory (SRAM) and runs a fixed, pre-planned dataflow, so tokens stream out with very low and very predictable latency.</p>
+            <div class="callout"><span class="label">Tie the day together</span>KV and prompt caching, GQA and MQA, Flash Attention, quantization, speculative decoding, and the hardware itself are why the <em>same</em> prompt can cost and take wildly different amounts on a laptop, a hosted open model, and a frontier API.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="80" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">GPU</text>
+              <rect x="30" y="32" width="100" height="34" rx="6" fill="#f1f5f9" stroke="#94a3b8"/><text x="80" y="53" text-anchor="middle" font-size="9" fill="#475569">slow memory (HBM)</text>
+              <line x1="80" y1="66" x2="80" y2="86" stroke="#be123c" stroke-width="1.6" marker-end="url(#a47d)"/>
+              <text x="150" y="80" font-size="8.5" fill="#be123c">weights shuttle</text>
+              <rect x="30" y="88" width="100" height="30" rx="6" fill="#eff6ff" stroke="#2563eb"/><text x="80" y="107" text-anchor="middle" font-size="9" fill="#1e40af">compute</text>
+              <text x="80" y="138" text-anchor="middle" font-size="8.5" fill="#6b7793">flexible, but memory-bound</text>
+
+              <text x="245" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">LPU (Groq)</text>
+              <rect x="190" y="32" width="110" height="86" rx="6" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="245" y="60" text-anchor="middle" font-size="9" fill="#065f46">weights in fast</text>
+              <text x="245" y="74" text-anchor="middle" font-size="9" fill="#065f46">on-chip memory</text>
+              <text x="245" y="98" text-anchor="middle" font-size="9" fill="#065f46">pre-planned dataflow</text>
+              <text x="245" y="138" text-anchor="middle" font-size="8.5" fill="#6b7793">specialized, streams tokens fast</text>
+              <defs><marker id="a47d" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#be123c"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Benchmark the same prompt, two ways</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Send one prompt through a 4-bit local model (Ollama) and through Groq, and measure what the day predicted: latency and cost differ, and a repeated prefix gets cheaper the second time.</p>
+            <ul class="tight">
+              <li>Stream the reply to measure time to first token, total time, and throughput (tokens per second), per provider.</li>
+              <li>Run the same prompt twice; watch the prefix speed up.</li>
+              <li>Price the tokens at each tier and compare.</li>
+            </ul>
+            <div class="callout"><span class="label">Honest note</span>Exact numbers depend on your machine, the model, and the provider. The point is the <em>shape</em>: local is free but slower on modest hardware; Groq is metered but very fast.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="20" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3f4a63">latency (illustrative)</text>
+              <text x="60" y="60" font-size="10" fill="#3f4a63">local 4-bit</text>
+              <rect x="120" y="48" width="170" height="20" rx="4" fill="#fee2e2" stroke="#be123c"/>
+              <text x="60" y="100" font-size="10" fill="#3f4a63">Groq</text>
+              <rect x="120" y="88" width="60" height="20" rx="4" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="60" y="140" font-size="10" fill="#3f4a63">Groq, cached</text>
+              <rect x="120" y="128" width="38" height="20" rx="4" fill="#bbf7d0" stroke="#16a34a"/>
+              <text x="160" y="180" text-anchor="middle" font-size="9" fill="#94a3b8">shape only, not measured here</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Explain the KV cache and prompt caching, and what fills GPU memory.</li>
+              <li>Say how GQA, MQA, and Flash Attention make attention cheaper.</li>
+              <li>Explain quantization and why a laptop can run a capable model.</li>
+              <li>Describe speculative decoding and why it keeps quality.</li>
+              <li>Say why hardware like Groq changes the bill.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Measure latency and cost for the same prompt across a local model and Groq, then summarize the trade-off in your own words.</p>
+            <div class="callout"><span class="label">Next, class 4.8 (Evaluating LLM and RAG)</span>You can serve the assistant fast and cheap, but is it any good? Next we measure whether the answers are correct, grounded, and relevant.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
