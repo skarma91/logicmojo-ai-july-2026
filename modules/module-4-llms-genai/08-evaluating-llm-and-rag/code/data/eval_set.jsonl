@@ -1,0 +1,30 @@
+{"id": "q01", "question": "What is the standard deduction for a single filer in 2025?", "gold_id": "p501-2025-stdded", "reference": "15,000."}
+{"id": "q02", "question": "What is the 2025 standard deduction for married filing jointly?", "gold_id": "p501-2025-stdded", "reference": "30,000."}
+{"id": "q03", "question": "What was the standard deduction for a single filer in 2024?", "gold_id": "p501-2024-stdded", "reference": "14,600."}
+{"id": "q04", "question": "The standard deduction went up this year; what is it now for a single filer?", "gold_id": "p501-2025-stdded", "reference": "15,000 for 2025."}
+{"id": "q05", "question": "How many filing statuses are there?", "gold_id": "p501-2025-status", "reference": "Five."}
+{"id": "q06", "question": "Which filing status categories exist?", "gold_id": "p501-2025-status", "reference": "Single, married filing jointly, married filing separately, head of household, and qualifying surviving spouse."}
+{"id": "q07", "question": "Does everyone have to file a federal income tax return?", "gold_id": "p501-2025-mustfile", "reference": "No; it depends on income, filing status, and age."}
+{"id": "q08", "question": "What is a dependent?", "gold_id": "p501-2025-dependent", "reference": "A qualifying child or a qualifying relative."}
+{"id": "q09", "question": "What fraction of AGI must medical expenses exceed before they are deductible?", "gold_id": "p502-2025-threshold", "reference": "7.5 percent of AGI."}
+{"id": "q10", "question": "Where do you claim medical expense deductions?", "gold_id": "p502-2025-threshold", "reference": "On Schedule A, as an itemized deduction."}
+{"id": "q11", "question": "If my AGI is 100,000, above what amount are medical expenses deductible?", "gold_id": "p502-2025-threshold", "reference": "Above 7,500, which is 7.5 percent of AGI."}
+{"id": "q12", "question": "Can I include dental treatment in medical expenses?", "gold_id": "p502-2025-dental", "reference": "Yes, dental treatment counts as a medical expense."}
+{"id": "q13", "question": "Are fees paid to doctors deductible medical expenses?", "gold_id": "p502-2025-deductible", "reference": "Yes, fees to doctors are deductible medical expenses."}
+{"id": "q14", "question": "Can I deduct nonprescription drugs?", "gold_id": "p502-2025-notdeductible", "reference": "Generally no."}
+{"id": "q15", "question": "What is the 2025 HSA contribution limit for self-only coverage?", "gold_id": "p969-2025-limit", "reference": "4,300."}
+{"id": "q16", "question": "What is the 2025 HSA contribution limit for family coverage?", "gold_id": "p969-2025-limit", "reference": "8,550."}
+{"id": "q17", "question": "What was the 2024 HSA self-only contribution limit?", "gold_id": "p969-2024-limit", "reference": "4,150."}
+{"id": "q18", "question": "Who is eligible to contribute to an HSA?", "gold_id": "p969-2025-eligible", "reference": "Someone covered by a high-deductible health plan."}
+{"id": "q19", "question": "Do I need a special kind of health plan to open an HSA?", "gold_id": "p969-2025-eligible", "reference": "Yes, a high-deductible health plan."}
+{"id": "q20", "question": "Are HSA distributions for qualified medical expenses taxed?", "gold_id": "p969-2025-qualified", "reference": "No, qualified medical distributions are tax-free."}
+{"id": "q21", "question": "Can I deduct charitable contributions?", "gold_id": "p526-2025-deduct", "reference": "Yes, gifts to qualified organizations."}
+{"id": "q22", "question": "Is there a limit on how much I can deduct for charitable gifts?", "gold_id": "p526-2025-limit", "reference": "Yes, capped at a percentage of AGI."}
+{"id": "q23", "question": "Can I deduct unlimited charitable donations?", "gold_id": "p526-2025-limit", "reference": "No, the deduction is capped at a share of AGI."}
+{"id": "q24", "question": "What record do I need for a cash donation?", "gold_id": "p526-2025-records", "reference": "A bank record or a written acknowledgment."}
+{"id": "q25", "question": "What is the debt limit for deducting home mortgage interest?", "gold_id": "p936-2025-limit", "reference": "750,000 of home acquisition debt for loans after 2017."}
+{"id": "q26", "question": "What are points on a home mortgage?", "gold_id": "p936-2025-points", "reference": "Charges paid to obtain a mortgage; a form of prepaid interest."}
+{"id": "q27", "question": "Are mortgage points a form of interest?", "gold_id": "p936-2025-points", "reference": "Yes, they are prepaid interest."}
+{"id": "q28", "question": "What qualifies as home mortgage interest?", "gold_id": "p936-2025-deductible", "reference": "Interest on a loan secured by your home."}
+{"id": "q29", "question": "What is the federal corporate income tax rate?", "gold_id": null, "reference": "Not found in the documents."}
+{"id": "q30", "question": "How do I form an S corporation?", "gold_id": null, "reference": "Not found in the documents."}

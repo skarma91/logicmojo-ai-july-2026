@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.8 - Evaluating LLM and RAG systems</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.8</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.8</span>
+      <h1>Evaluating LLM and RAG systems</h1>
+      <p class="lead">Building a RAG assistant is the easy part. Proving it actually answers correctly, from the documents, and on point, is the hard part. Today we measure it.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Why eval is hard<span class="step-note">Language has no single right answer.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The metrics<span class="step-note">Faithful, relevant, and did retrieval work.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">LLM as judge<span class="step-note">Score at scale, mind the biases.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">An eval set<span class="step-note">The asset you reuse on every change.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">You cannot improve what you cannot measure</span>Every later change, a new retriever (class 4.6), a fine-tune (class 4.10), a cheaper model, needs a number to say whether it helped or hurt.</div>
+            <div class="pill"><span class="pill-tag">Milestone</span>The 30-item eval set you build here is part of the Module 4 milestone, and it guards against regressions for the rest of the course.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Frame -->
+    <section>
+      <h2><span class="eyebrow">The frame</span>Proving it works is the hard part</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A demo that answers one question well proves nothing. A real system has to be right <em>across many questions</em>, and it can fail in quiet, specific ways: a fluent answer that is subtly wrong, a correct answer built on the wrong passage, or an answer that dodges the question.</p>
+        <div class="cols cols-3">
+          <div class="card"><div class="label" style="color:#be123c">It can hallucinate</div><p style="font-size:0.9em; color:#3f4a63">Say something confident that the retrieved context does not support.</p></div>
+          <div class="card"><div class="label" style="color:#be123c">It can miss the point</div><p style="font-size:0.9em; color:#3f4a63">Answer fluently but not actually address what was asked.</p></div>
+          <div class="card"><div class="label" style="color:#be123c">Retrieval can fail</div><p style="font-size:0.9em; color:#3f4a63">Fetch the wrong passages, so even a good model has nothing to work with.</p></div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The goal today</span>Turn "it seems good" into numbers you trust, so a change is judged by evidence, not by vibes.</div>
+      </div>
+    </section>
+
+    <!-- 4. Why eval is hard -->
+    <section>
+      <h2><span class="eyebrow">The problem</span>Why language eval is hard</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A multiple-choice test has one right answer, so scoring is trivial. A written answer does not: two very different sentences can both be correct, and one fluent paragraph can be completely wrong. Plain accuracy cannot capture that.</p>
+            <div class="callout"><span class="label">The analogy</span>Evaluating an LLM is like <strong>grading an essay</strong>, not marking a multiple-choice test. You need a rubric with several dimensions, not a single tick or cross.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="130" height="150" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="85" y="52" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1e40af">multiple choice</text>
+              <text x="85" y="86" text-anchor="middle" font-size="10" fill="#3f4a63">one right answer</text>
+              <text x="85" y="106" text-anchor="middle" font-size="10" fill="#3f4a63">tick or cross</text>
+              <text x="85" y="126" text-anchor="middle" font-size="10" fill="#047857">accuracy works</text>
+              <rect x="170" y="30" width="130" height="150" rx="8" fill="#fff7ed" stroke="#f59e0b"/>
+              <text x="235" y="52" text-anchor="middle" font-size="10.5" font-weight="700" fill="#b45309">an essay</text>
+              <text x="235" y="86" text-anchor="middle" font-size="10" fill="#3f4a63">many valid answers</text>
+              <text x="235" y="106" text-anchor="middle" font-size="10" fill="#3f4a63">fluent can be wrong</text>
+              <text x="235" y="126" text-anchor="middle" font-size="10" fill="#be123c">needs a rubric</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. The metric set -->
+    <section>
+      <h2><span class="eyebrow">The metrics</span>Three questions, four numbers</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Instead of one score, measure a RAG answer along the axes that can each fail on their own. Each metric isolates a different failure, so a low one tells you <em>where</em> to look.</p>
+        <div class="grid-table" style="grid-template-columns: 1fr 1.6fr 1.1fr; font-size:0.88em">
+          <div class="gt-head">Metric</div><div class="gt-head">The question it answers</div><div class="gt-head">Catches</div>
+          <div class="gt-accent">Faithfulness</div><div>Does the answer stick to the retrieved context, or make things up?</div><div>hallucination</div>
+          <div class="gt-accent">Answer relevance</div><div>Does the answer actually address the question?</div><div>off-topic, evasive</div>
+          <div class="gt-accent">Context relevance</div><div>Of the passages retrieved, how many are on-topic?</div><div>noisy retrieval</div>
+          <div class="gt-accent">Context recall</div><div>Did retrieval fetch the passage that holds the answer?</div><div>missed retrieval</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Generator versus retriever</span>Faithfulness and answer relevance grade the <strong>answer</strong>; context relevance and recall grade the <strong>retriever</strong>. Splitting them tells you whether to fix the prompt and model, or the search.</div>
+      </div>
+    </section>
+
+    <!-- 6. Faithfulness -->
+    <section>
+      <h2><span class="eyebrow">Metric 1</span>Faithfulness: is every claim supported?</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Break the answer into individual factual <strong>claims</strong>, then check each one against the retrieved context. Faithfulness is the fraction that the context actually supports.</p>
+            <p style="text-align:center; margin:12px 0">$$ \text{faithfulness} = \frac{\text{supported claims}}{\text{total claims}} $$</p>
+            <div class="callout"><span class="label">Reading it</span>A score of 1 means every statement is grounded. Below 1 means the answer asserted something the passages do not back, the signature of hallucination. It does not ask whether the answer is <em>useful</em>, only whether it is <em>grounded</em>.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="20" width="280" height="30" rx="6" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="160" y="39" text-anchor="middle" font-size="10" fill="#1e40af">answer, split into claims</text>
+              <rect x="30" y="66" width="260" height="24" rx="5" fill="#dcfce7" stroke="#16a34a"/><text x="42" y="82" font-size="9.5" fill="#065f46">claim 1: standard deduction is 15,000</text><text x="278" y="82" text-anchor="end" font-size="9.5" fill="#065f46">ok</text>
+              <rect x="30" y="94" width="260" height="24" rx="5" fill="#dcfce7" stroke="#16a34a"/><text x="42" y="110" font-size="9.5" fill="#065f46">claim 2: for a single filer</text><text x="278" y="110" text-anchor="end" font-size="9.5" fill="#065f46">ok</text>
+              <rect x="30" y="122" width="260" height="24" rx="5" fill="#fee2e2" stroke="#be123c"/><text x="42" y="138" font-size="9.5" fill="#7f1d1d">claim 3: it doubled since last year</text><text x="278" y="138" text-anchor="end" font-size="9.5" fill="#7f1d1d">no</text>
+              <text x="160" y="176" text-anchor="middle" font-size="12" font-weight="700" fill="#3f4a63">2 of 3 supported = 0.67</text>
+              <text x="160" y="196" text-anchor="middle" font-size="9.5" fill="#be123c">claim 3 is not in the context: unfaithful</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Answer relevance -->
+    <section>
+      <h2><span class="eyebrow">Metric 2</span>Answer relevance: does it address the question?</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A grounded answer can still miss the point: correct, but not what was asked. Answer relevance scores how directly the reply responds to the question, on a rubric from 0 to 1.</p>
+            <div class="callout"><span class="label">Faithful is not the same as relevant</span>"The HSA limit is 4,300" is perfectly faithful, but if the question was about the <em>standard deduction</em> it scores low on relevance. The two metrics catch different faults, which is why you need both.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="24" width="280" height="28" rx="6" fill="#ecfdf5" stroke="#10b981"/><text x="160" y="43" text-anchor="middle" font-size="10" fill="#065f46">Q: what is the standard deduction for a single filer?</text>
+              <rect x="30" y="70" width="260" height="34" rx="6" fill="#eff6ff" stroke="#2563eb"/><text x="160" y="85" text-anchor="middle" font-size="9.5" fill="#1e40af">"It is 15,000 for a single filer in 2025."</text><text x="160" y="99" text-anchor="middle" font-size="9" fill="#047857">on point: relevance high</text>
+              <rect x="30" y="116" width="260" height="34" rx="6" fill="#fef2f2" stroke="#be123c"/><text x="160" y="131" text-anchor="middle" font-size="9.5" fill="#7f1d1d">"Deductions reduce taxable income."</text><text x="160" y="145" text-anchor="middle" font-size="9" fill="#be123c">true, but dodges the question: low</text>
+              <text x="160" y="180" text-anchor="middle" font-size="9.5" fill="#6b7793">both can be faithful; only one is relevant</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Context relevance and recall -->
+    <section>
+      <h2><span class="eyebrow">Metric 3 and 4</span>Grading the retriever: relevance and recall</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Context relevance (precision)</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0 0 8px">Of the passages retrieval returned, how many are actually about the question. Noise crowds the prompt and can mislead the model.</p>
+            <p style="text-align:center; margin:0; font-size:0.95em">\( \dfrac{\text{relevant retrieved}}{\text{retrieved}} \)</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Context recall</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0 0 8px">Did retrieval fetch the passage that truly holds the answer (the labeled gold passage)? If it did not, no model can answer well.</p>
+            <p style="text-align:center; margin:0; font-size:0.95em">\( \dfrac{\text{gold passages retrieved}}{\text{gold passages}} \)</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Why recall is the cheap one</span>Recall needs no judge: you labeled the gold passage when you built the eval set, so it is a deterministic check, the same idea as hit@k from class 4.6 (RAG with frameworks). Relevance needs a judgment call, so it uses the model as judge (next).</div>
+      </div>
+    </section>
+
+    <!-- 9. One score is not enough -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>One score is not enough</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">"Give me one number for quality." There is no honest single number. A fluent answer can be unfaithful; perfect retrieval can still be answered off-topic. Collapse the metrics into one and you hide exactly the failure you needed to see.</p>
+            <div class="callout"><span class="label">Read them together</span>Low faithfulness but high recall means the model is ignoring good context: fix the prompt. High faithfulness but low recall means the search missed: fix the retriever. The <em>pattern</em> across metrics is the diagnosis.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="20" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3f4a63">two systems, same average</text>
+              <text x="60" y="46" font-size="9.5" fill="#3f4a63">A</text>
+              <rect x="80" y="36" width="150" height="14" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="238" y="47" font-size="8.5" fill="#065f46">faith .9</text>
+              <rect x="80" y="54" width="150" height="14" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="238" y="65" font-size="8.5" fill="#065f46">recall .9</text>
+              <text x="60" y="104" font-size="9.5" fill="#3f4a63">B</text>
+              <rect x="80" y="94" width="165" height="14" rx="3" fill="#fee2e2" stroke="#be123c"/><text x="250" y="105" font-size="8.5" fill="#7f1d1d">faith 1.0</text>
+              <rect x="80" y="112" width="130" height="14" rx="3" fill="#fee2e2" stroke="#be123c"/><text x="216" y="123" font-size="8.5" fill="#7f1d1d">recall .8</text>
+              <text x="160" y="160" text-anchor="middle" font-size="10" fill="#3f4a63">same mean 0.9, very different systems</text>
+              <text x="160" y="180" text-anchor="middle" font-size="9.5" fill="#be123c">the average hides which part is weak</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9b. Combining metrics -->
+    <section>
+      <h2><span class="eyebrow">Deciding</span>Combining metrics: gates, weights, and what matters when</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Keep the metrics separate to <em>diagnose</em>. Combine them only to make a <em>decision</em> (ship or not, which system wins), and do it deliberately in two layers, not with a blind average.</p>
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Hard gates first</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">Non-negotiable minimums. A hallucination is not offset by fluent relevance, so faithfulness (and any safety metric) must clear a threshold, for example \( \ge 0.95 \), or the whole answer fails regardless of the rest.</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">Then a weighted average</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">For the metrics where trade-offs are fair, combine into one number: \( \text{score} = \sum_i w_i\, m_i \), with \( \sum_i w_i = 1 \). Here \(m_i\) is each metric (on 0 to 1) and \(w_i\) its weight. Use this for a leaderboard or a go/no-go, never as the only thing you look at.</p>
+          </div>
+        </div>
+        <div class="grid-table" style="grid-template-columns: 1.5fr 1.5fr; font-size:0.84em; margin-top:10px">
+          <div class="gt-head">When your use case is...</div><div class="gt-head">Weight most (often a gate)</div>
+          <div class="gt-accent">High-stakes factual (medical, legal, finance)</div><div>faithfulness and safety: a wrong answer is costly, so gate these.</div>
+          <div class="gt-accent">Large corpus, needle in a haystack</div><div>context recall: if the right passage is missed, nothing downstream helps.</div>
+          <div class="gt-accent">Tight context window or a small model</div><div>context precision: noise crowds the prompt and misleads a weak model.</div>
+          <div class="gt-accent">Chat and helpfulness</div><div>answer relevance: users abandon evasive or off-topic replies.</div>
+          <div class="gt-accent">Structured extraction</div><div>exact match and schema validity: relevance barely applies.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Setting the weights</span>Weight by the business cost of each error type, then check the composite ranks systems the way a human would on a small labeled sample. Keep the per-metric dashboard alongside; the composite is for the decision, the breakdown is for the fix.</div>
+      </div>
+    </section>
+
+    <!-- 10. LLM as judge -->
+    <section>
+      <h2><span class="eyebrow">The tool</span>LLM as judge, and its biases</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Faithfulness and relevance need a judgment a human would make, but by hand that does not scale. So we use a capable model as the <strong>judge</strong>: give it the question, the answer, the context, and a clear rubric, and have it return a short reason then a score. Fast and useful, but it brings its own biases, so know them before you trust the number.</p>
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <div class="grid-table" style="grid-template-columns: 0.9fr 1.9fr; font-size:0.84em">
+              <div class="gt-head">Bias</div><div class="gt-head">What it does</div>
+              <div class="gt-accent">Verbosity</div><div>rates longer, wordier answers higher regardless of correctness.</div>
+              <div class="gt-accent">Position</div><div>in an A vs B comparison, favors whichever answer is shown first.</div>
+              <div class="gt-accent">Self-preference</div><div>rates its own outputs, and its own family's style, higher than others.</div>
+              <div class="gt-accent">Leniency and drift</div><div>tends to be too generous, and can score the same answer differently run to run.</div>
+            </div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="90" height="26" rx="5" fill="#ecfdf5" stroke="#10b981"/><text x="65" y="47" text-anchor="middle" font-size="9" fill="#065f46">question</text>
+              <rect x="20" y="62" width="90" height="26" rx="5" fill="#eff6ff" stroke="#2563eb"/><text x="65" y="79" text-anchor="middle" font-size="9" fill="#1e40af">answer</text>
+              <rect x="20" y="94" width="90" height="26" rx="5" fill="#f8fafc" stroke="#94a3b8"/><text x="65" y="111" text-anchor="middle" font-size="9" fill="#475569">context</text>
+              <rect x="20" y="126" width="90" height="26" rx="5" fill="#fff7ed" stroke="#f59e0b"/><text x="65" y="143" text-anchor="middle" font-size="9" fill="#b45309">rubric</text>
+              <line x1="112" y1="90" x2="168" y2="90" stroke="#2563eb" stroke-width="1.6" marker-end="url(#j1)"/>
+              <rect x="170" y="66" width="90" height="48" rx="8" fill="#1e293b"/><text x="215" y="86" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">judge</text><text x="215" y="102" text-anchor="middle" font-size="8.5" fill="#cbd5e1">a separate model</text>
+              <line x1="260" y1="90" x2="290" y2="90" stroke="#2563eb" stroke-width="1.6" marker-end="url(#j1)"/>
+              <text x="215" y="140" text-anchor="middle" font-size="10" fill="#065f46">reason, then a score 0 to 1</text>
+              <text x="160" y="190" text-anchor="middle" font-size="9.5" fill="#be123c">a proxy for a human, not the truth</text>
+              <defs><marker id="j1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10b. Guarding the judge -->
+    <section>
+      <h2><span class="eyebrow">The tool</span>Guarding the judge: mitigations</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Each bias has a concrete countermeasure. None makes the judge perfect; together they make it trustworthy enough to act on.</p>
+        <div class="grid-table" style="grid-template-columns: 1.1fr 1.9fr; font-size:0.86em">
+          <div class="gt-head">Do this</div><div class="gt-head">Because it fixes</div>
+          <div class="gt-accent">Score against a rubric, reason first</div><div>a fixed rubric and a short justification before the number curb verbosity and make scores consistent, not vibes.</div>
+          <div class="gt-accent">Randomize order, or score absolutely</div><div>removes position bias: shuffle A and B, or grade each answer on its own 0-to-1 scale instead of comparing two.</div>
+          <div class="gt-accent">Judge with a different, stronger model</div><div>fixes self-preference: do not let the model that wrote the answer be the only grader of its own work; a separate or stronger judge, or a panel, is fairer.</div>
+          <div class="gt-accent">Low temperature, average repeats</div><div>reduces run-to-run drift so the same answer gets close to the same score.</div>
+          <div class="gt-accent">Calibrate against human labels</div><div>hand-label a small sample and check the judge agrees; trust it only as far as it tracks people.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The one rule that matters most</span>The judge is a <strong>proxy for a human</strong>. Its scores are only worth acting on to the extent they agree with a small set of human-labeled examples, so measure that agreement, do not assume it.</div>
+      </div>
+    </section>
+
+    <!-- 11. Building an eval set -->
+    <section>
+      <h2><span class="eyebrow">The asset</span>Building a representative eval set</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Metrics need something to run on. An eval set is a fixed list of items, each a <strong>question</strong>, a <strong>reference answer</strong>, and the <strong>gold passage</strong> that holds it, chosen to reflect the questions real users actually ask (common cases, edge cases, and things the corpus does <em>not</em> cover, so you can check it says "not found").</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What makes it representative</span>Cover the real distribution: the frequent questions, the tricky ones, the year-sensitive ones, and a few unanswerable ones. Thirty good items beat three hundred careless ones.</div>
+          <div class="callout"><span class="label">Why it is an asset</span>Build it once and reuse it forever: every time you change the retriever (4.6), the model, or add a fine-tune (4.10), you rerun the same set and see if the numbers moved. It is your regression test.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. RAGAS reference -->
+    <section>
+      <h2><span class="eyebrow">The standard library</span>RAGAS, and why we hand-build first</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>RAGAS</strong> is the widely used open library for exactly these RAG metrics: faithfulness, answer relevance, context precision, and context recall, computed with an LLM judge and embeddings. Worth knowing by name, and reaching for once you understand what it measures.</p>
+            <div class="callout"><span class="label">Why we hand-build them here</span>Writing each metric as a small LLM-as-judge call (about 40 lines) makes the definitions concrete: you see exactly what "faithfulness" checks. A library that prints a number you cannot explain teaches nothing.</div>
+          </div>
+          <div>
+            <div class="callout"><span class="label">Using RAGAS for real</span>Install: <code>pip install ragas datasets</code>, and configure a judge model and an embeddings model. Then wrap your (question, answer, contexts, ground_truth) rows in its dataset format and call its metrics.</div>
+            <div class="callout"><span class="label">The pitfall to expect</span>RAGAS pins specific LangChain and related versions, which often clash with a current LangChain or LangGraph install. Budget time for a dependency conflict, or run it in an isolated environment. This is why our build keeps RAGAS as a reference block, not the core.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12b. Diagnosing failures -->
+    <section>
+      <h2><span class="eyebrow">Diagnosis</span>Reading the scores: which failure, which fix</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The point of separate metrics is the <em>pattern</em> they make. Each pattern points at a different part of the pipeline, so the scores tell you what to fix, not just that something is wrong.</p>
+        <div class="grid-table" style="grid-template-columns: 1.05fr 1.35fr 1.6fr; font-size:0.8em">
+          <div class="gt-head">Score pattern</div><div class="gt-head">What is wrong</div><div class="gt-head">What to fix</div>
+          <div class="gt-accent">Recall low</div><div>the gold passage was never retrieved</div><div>the retriever: raise k, better embeddings, hybrid with BM25, a re-ranker, or better chunking (class 4.6).</div>
+          <div class="gt-accent">Recall high, precision low</div><div>the right passage is found but buried in noise</div><div>trim k, add a re-ranker, tighter chunks, or metadata filters.</div>
+          <div class="gt-accent">Retrieval good, faithfulness low</div><div>the model ignores good context and invents</div><div>the prompt and model: force "answer only from context", lower temperature, a stronger model, require citations.</div>
+          <div class="gt-accent">Faithful but answer relevance low</div><div>grounded, but not addressing the question</div><div>rewrite vague queries (class 4.6), prompt to answer directly, split multi-part questions.</div>
+          <div class="gt-accent">Unanswerable items score low faithfulness</div><div>the model will not say "not found"</div><div>instruct it to abstain and add a refusal example or two.</div>
+          <div class="gt-accent">Everything low</div><div>the plumbing is broken (wrong corpus, embedding mismatch, empty context)</div><div>check the pipeline before tuning anything.</div>
+          <div class="gt-accent">All high, users still unhappy</div><div>the metrics miss something real (style, completeness, tone)</div><div>add a metric for it and recalibrate against human labels.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The split that guides you</span>Recall and precision point at the <strong>retriever</strong>; faithfulness and answer relevance point at the <strong>prompt and model</strong>. Which pair is low tells you which half of the system to touch.</div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Score the assistant, find the weakest metric</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Run a 30-item eval set through the class 4.5 (RAG from scratch) assistant over the real IRS corpus, score all four metrics, and read them together to find the one weak spot to fix first.</p>
+            <ul class="tight">
+              <li>A 30-item eval set: question, reference, gold passage.</li>
+              <li>Hand-built faithfulness, answer relevance, context relevance via LLM-as-judge.</li>
+              <li>Context recall as a deterministic check.</li>
+              <li>Report the four means; the lowest is your next target.</li>
+            </ul>
+            <div class="callout"><span class="label">Milestone</span>This eval set is part 1 of the Module 4 milestone, and it is what tells you later whether a change helped.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="18" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3f4a63">scores across the set (illustrative)</text>
+              <g font-size="9">
+                <text x="14" y="46" font-size="9" fill="#3f4a63">faithful</text><rect x="90" y="36" width="180" height="16" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="276" y="49" font-size="8.5" fill="#065f46">.90</text>
+                <text x="14" y="80" font-size="9" fill="#3f4a63">answer rel</text><rect x="90" y="70" width="168" height="16" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="264" y="83" font-size="8.5" fill="#065f46">.84</text>
+                <text x="14" y="114" font-size="9" fill="#3f4a63">ctx rel</text><rect x="90" y="104" width="150" height="16" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="246" y="117" font-size="8.5" fill="#065f46">.75</text>
+                <text x="14" y="148" font-size="9" fill="#be123c">ctx recall</text><rect x="90" y="138" width="120" height="16" rx="3" fill="#fee2e2" stroke="#be123c"/><text x="216" y="151" font-size="8.5" fill="#7f1d1d">.60</text>
+              </g>
+              <text x="160" y="184" text-anchor="middle" font-size="10" fill="#be123c">weakest = recall: fix the retriever first</text>
+              <text x="160" y="200" text-anchor="middle" font-size="8.5" fill="#94a3b8">illustrative, not measured here</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Say why language eval needs a rubric, not accuracy.</li>
+              <li>Define faithfulness, answer relevance, context relevance, and recall.</li>
+              <li>Score answers with an LLM judge, and guard for its biases.</li>
+              <li>Build a representative eval set and read the metrics together.</li>
+              <li>Name RAGAS, and its dependency pitfalls.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Evaluate the movie-plot assistant on a small eval set, find its weakest metric, and state one change you would try to improve it.</p>
+            <div class="callout"><span class="label">Next, class 4.9 (Fine-tuning I)</span>Should you even fine-tune? Usually no. Next we decide when it is the right lever, and prepare the data, with this eval set ready to judge whether it helped.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
