@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.9 - Fine-tuning I: the decision and the data</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.9</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.9</span>
+      <h1>Fine-tuning I: the decision and the data</h1>
+      <p class="lead">Fine-tuning is powerful and usually the wrong first move. Today we learn when it is the right lever, and prepare the dataset for the one hands-on run in class 4.10.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Should you even fine-tune?<span class="step-note">Prompt, RAG, or fine-tune: which lever.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Behavior, not facts<span class="step-note">What fine-tuning actually changes.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">LoRA and QLoRA<span class="step-note">Train a small add-on, on free hardware.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The data<span class="step-note">Prepare and format the examples.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The senior move</span>Knowing which lever to pull, and usually <em>not</em> reaching for fine-tuning, saves weeks and money.</div>
+            <div class="pill"><span class="pill-tag">Environment</span>Back in a Colab notebook. Today prepares the dataset and the config; class 4.10 runs the QLoRA job.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Should you fine-tune -->
+    <section>
+      <h2><span class="eyebrow">The decision</span>Should you even fine-tune? Usually no</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Fine-tuning is expensive to do well: you need good data, a training run, evaluation, and a way to serve the result. Most problems are solved more cheaply by a better prompt or by retrieval. Reach for fine-tuning last, not first.</p>
+        <div class="callout"><span class="label">The order to try things</span>Start with a better <strong>prompt</strong>. If the gap is missing knowledge, add <strong>RAG</strong> (classes 4.5 and 4.6). Only if the model still will not follow the <em>behavior</em> you need, fine-tune. Each step is cheaper and faster to change than the next.</div>
+      </div>
+    </section>
+
+    <!-- 4. The three levers -->
+    <section>
+      <h2><span class="eyebrow">The three levers</span>Prompt, RAG, or fine-tune: when each wins</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 0.8fr 1.6fr 1.3fr; font-size:0.86em">
+          <div class="gt-head">Lever</div><div class="gt-head">Best for</div><div class="gt-head">Cost to change</div>
+          <div class="gt-accent">Prompt</div><div>instructions, format, tone, a few examples; the first thing to try.</div><div>seconds, just edit text</div>
+          <div class="gt-accent">RAG</div><div>giving the model knowledge it lacks: your documents, current facts.</div><div>minutes, update the corpus</div>
+          <div class="gt-accent">Fine-tune</div><div>a behavior, style, or narrow skill the model will not follow from a prompt alone.</div><div>hours to days, retrain</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">They combine</span>These are not exclusive. A common production shape is a fine-tuned model for consistent behavior, <em>plus</em> RAG for fresh knowledge, <em>plus</em> a good prompt. Pick the cheapest lever that closes your specific gap.</div>
+      </div>
+    </section>
+
+    <!-- 5. Behavior not facts -->
+    <section>
+      <h2><span class="eyebrow">The core idea</span>Fine-tune for behavior, not facts</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Fine-tuning shapes <strong>how</strong> the model responds: its style, format, and consistency. It is a poor way to add <strong>what</strong> it knows. Facts are better handled by RAG, which you can update instantly and cite.</p>
+            <div class="callout"><span class="label">Misconception</span>"Fine-tune it on my documents so it knows them." It will not reliably learn facts that way, and it cannot cite them or stay current. Use RAG for knowledge; fine-tune to change behavior.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="34" width="130" height="130" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="85" y="56" text-anchor="middle" font-size="10.5" font-weight="700" fill="#065f46">fine-tune</text>
+              <text x="85" y="84" text-anchor="middle" font-size="10" fill="#3f4a63">style</text>
+              <text x="85" y="104" text-anchor="middle" font-size="10" fill="#3f4a63">format</text>
+              <text x="85" y="124" text-anchor="middle" font-size="10" fill="#3f4a63">consistency</text>
+              <text x="85" y="150" text-anchor="middle" font-size="9" fill="#047857">how it answers</text>
+              <rect x="170" y="34" width="130" height="130" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="235" y="56" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1e40af">RAG</text>
+              <text x="235" y="84" text-anchor="middle" font-size="10" fill="#3f4a63">your documents</text>
+              <text x="235" y="104" text-anchor="middle" font-size="10" fill="#3f4a63">current facts</text>
+              <text x="235" y="124" text-anchor="middle" font-size="10" fill="#3f4a63">citable</text>
+              <text x="235" y="150" text-anchor="middle" font-size="9" fill="#1e40af">what it knows</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. What SFT does -->
+    <section>
+      <h2><span class="eyebrow">The mechanism</span>What supervised fine-tuning does</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Supervised fine-tuning (SFT) is the training loop from class 2.2 (How models learn), applied to an already-pretrained model on your own input-output examples. The model keeps predicting the next token; you just continue training so it adopts the pattern in your examples.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Same loop as class 2.2</span>Forward pass, compute the loss against the target output, backpropagate, update. Nothing new in the mechanics; what changed is the starting point (a capable model) and the data (a few hundred of your examples).</div>
+          <div class="callout"><span class="label">What "learning a behavior" means</span>Show the model many examples of the answer style you want, and it shifts its weights toward producing that style by default, without you having to spell it out in every prompt. We call that target style the model's <strong>house style</strong>: borrowed from publishing, where a "house style" is the fixed set of rules an outlet applies to everything it prints (tone, formatting, how sources are cited). Here it means our assistant's rules: concise, always cite the publication and year, and decline politely when the answer is not covered.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6b. Two axes + PEFT -->
+    <section>
+      <h2><span class="eyebrow">Two axes</span>SFT vs full vs PEFT: two different choices</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">"Supervised fine-tuning" and "full fine-tuning" are not the same thing, they answer different questions. Do not conflate them.</p>
+        <div class="grid-table" style="grid-template-columns: 1.15fr 1.85fr; font-size:0.86em">
+          <div class="gt-head">The choice</div><div class="gt-head">The options</div>
+          <div class="gt-accent">What you train on (the objective)</div><div><strong>SFT</strong>: learn from labeled input-output pairs. Or <strong>preference optimization</strong> (DPO, RLHF): learn from comparisons of better vs worse answers (class 4.10).</div>
+          <div class="gt-accent">How much you update (the parameters)</div><div><strong>Full fine-tuning</strong>: update every weight. Or <strong>PEFT</strong>: update a small subset, keep the base frozen.</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">They are independent</span>You can do SFT with full fine-tuning, or SFT with PEFT. Our build is <strong>SFT + QLoRA</strong>: the objective is supervised pairs, and the parameters are updated the PEFT way. Full fine-tuning here would retrain all of the weights, far too costly.</div>
+          <div class="callout"><span class="label">The PEFT family</span><strong>PEFT</strong> = parameter-efficient fine-tuning. The common one is <strong>LoRA</strong> (and <strong>QLoRA</strong>), a small low-rank add-on. Others: <strong>adapters</strong> (tiny layers inserted between blocks), <strong>prefix and prompt tuning</strong> (train soft prompt vectors, weights untouched), and <strong>IA3</strong> (learned scalings). We use LoRA, next.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. LoRA -->
+    <section>
+      <h2><span class="eyebrow">Efficient fine-tuning</span>LoRA: train a small add-on, freeze the rest</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Updating every weight of a large model (full fine-tuning) needs a lot of memory and compute. <strong>LoRA</strong> (Low-Rank Adaptation) freezes the original weights and trains a small add-on instead, so you update a tiny fraction of the parameters.</p>
+            <div class="callout"><span class="label">Why it works</span>The change a task needs is usually low-rank: it can be captured by two small matrices rather than a full-size one. You learn those small matrices and leave the big model untouched, so you can keep many cheap add-ons for one base model.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- W: full d x d, frozen -->
+              <rect x="20" y="42" width="92" height="92" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="66" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">W</text>
+              <text x="66" y="104" text-anchor="middle" font-size="8.5" fill="#64748b">frozen</text>
+              <text x="66" y="150" text-anchor="middle" font-size="9.5" fill="#475569">d &#215; d</text>
+              <text x="126" y="94" text-anchor="middle" font-size="16" fill="#3f4a63">+</text>
+              <!-- B: d x r, tall and narrow -->
+              <rect x="146" y="42" width="34" height="64" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="163" y="79" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">B</text>
+              <text x="163" y="122" text-anchor="middle" font-size="9" fill="#166534">d &#215; r</text>
+              <!-- A: r x d, short and wide -->
+              <rect x="188" y="42" width="96" height="30" rx="6" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="236" y="62" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">A</text>
+              <text x="236" y="88" text-anchor="middle" font-size="9" fill="#166534">r &#215; d</text>
+              <text x="233" y="142" text-anchor="middle" font-size="9" fill="#166534">small, trained (r &#8810; d)</text>
+              <text x="170" y="172" text-anchor="middle" font-size="10" fill="#3f4a63">train only B and A; W stays fixed</text>
+              <text x="170" y="192" text-anchor="middle" font-size="9.5" fill="#047857">often under 1 percent of the parameters</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. W = W + BA decoded -->
+    <section>
+      <h2><span class="eyebrow">The formula</span>The low-rank update, decoded</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">LoRA replaces the fine-tuned weight with the frozen original plus a small learned correction:</p>
+        <p style="text-align:center; margin:14px 0">$$ W' = W + B A $$</p>
+        <div class="grid-table" style="grid-template-columns: 0.8fr 2.2fr">
+          <div class="gt-head">Symbol</div><div class="gt-head">In plain words</div>
+          <div class="gt-accent">\( W \)</div><div>the original weight matrix, shape \(d \times d\). Frozen, never updated.</div>
+          <div class="gt-accent">\( B, A \)</div><div>two small trained matrices, \(B\) is \(d \times r\) and \(A\) is \(r \times d\), with the rank \(r\) tiny (say 8 or 16).</div>
+          <div class="gt-accent">\( B A \)</div><div>their product is \(d \times d\), the same shape as \(W\), a compact approximation of the change the task needs.</div>
+          <div class="gt-accent">\( W' \)</div><div>the effective weight used at inference: original plus correction.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Why it is cheap</span>A full update trains \(d \times d\) numbers; LoRA trains only \(2 d r\). For \(d = 4096\) and \(r = 8\) that is about \(65{,}000\) versus \(17\) million per matrix, a few hundred times fewer.</div>
+      </div>
+    </section>
+
+    <!-- 8b. Why LoRA works -->
+    <section>
+      <h2><span class="eyebrow">The intuition</span>Why so few parameters can steer the whole model</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">It seems surprising that training well under one percent of the weights changes how the model behaves. Three reasons make it work.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">The skill is already there</span>Pretraining (class 3.4, pretrained transformers) already gave the model broad ability. A behavior tune does not teach it to write from scratch; it <strong>re-weights capability it already has</strong>, so a small nudge is enough.</div>
+          <div class="callout"><span class="label">The change is low-rank</span>The weight update a single task needs lives in a tiny subspace (its <strong>intrinsic rank</strong> is small). A rank-8 or rank-16 correction \(BA\) captures most of it, so two thin matrices do the work of a full one.</div>
+          <div class="callout"><span class="label">The base stays intact</span>Because \(W\) is frozen, the general knowledge in it cannot be overwritten. You steer behavior with the add-on while every original skill is preserved by construction.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Catastrophic forgetting</span>When you retrain <em>every</em> weight (full fine-tuning) on a narrow dataset, the model can overwrite unrelated skills it learned in pretraining and get worse at everything else. This is <strong>catastrophic forgetting</strong>. Freezing \(W\) and training only \(BA\) largely sidesteps it, though you still watch for it: a small or repetitive set can make even a LoRA tune overfit and drift, so in class 4.10 (Fine-tuning II) we check that general answers did not degrade.</div>
+      </div>
+    </section>
+
+    <!-- 8c. Which weights get an adapter -->
+    <section>
+      <h2><span class="eyebrow">Where the adapter goes</span>Which weights get an adapter (not all of them)</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A transformer has many weight matrices per layer. LoRA does not adapt all of them; you <strong>choose</strong> which ones (the <code>target_modules</code> setting). Every matrix you pick gets its own pair \(B, A\); the rest stay frozen.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">The usual choice</span>The four <strong>attention projections</strong>: query, key, value, and output (<code>q_proj</code>, <code>k_proj</code>, <code>v_proj</code>, <code>o_proj</code>). This is our notebook's default and a strong, cheap baseline that steers most behavior.</div>
+          <div class="callout"><span class="label">More capacity</span>Also adapt the <strong>feed-forward (MLP)</strong> projections (<code>gate</code>, <code>up</code>, <code>down</code>). This reaches more of the network for harder behavior shifts, at the cost of a larger adapter and more overfit risk.</div>
+          <div class="callout"><span class="label">Usually left alone</span>Token <strong>embeddings</strong>, the final output <strong>head</strong>, and <strong>layer-norms</strong> are normally not adapted; touching them adds many parameters for little behavior gain.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The knobs together</span>Two dials set the adapter size: the <strong>rank</strong> \(r\) (how big each \(BA\) is) and <strong>how many modules</strong> you target. More of either means more it can learn, a bigger adapter, and more chance of overfitting a small set.</div>
+      </div>
+    </section>
+
+    <!-- 8d. How many parameters -->
+    <section>
+      <h2><span class="eyebrow">The numbers</span>How many parameters you actually train</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Because you train only \(B, A\) on the chosen matrices, the count is tiny next to the base. Approximate trainable parameters when adapting the four attention projections (\(q, k, v, o\)):</p>
+        <div class="grid-table" style="grid-template-columns: 1.5fr 1fr 1fr 1fr; font-size:0.9em">
+          <div class="gt-head">Open-weight base</div><div class="gt-head">r = 8</div><div class="gt-head">r = 16</div><div class="gt-head">r = 32</div>
+          <div class="gt-accent">Qwen2.5-0.5B <span style="color:#64748b">(hidden 896, 24 layers)</span></div><div>~1.1M</div><div>~2.2M</div><div>~4.3M</div>
+          <div class="gt-accent">Qwen2.5-7B <span style="color:#64748b">(hidden 3584, 28 layers)</span></div><div>~5M</div><div>~10M</div><div>~20M</div>
+          <div class="gt-accent">Llama-3.1-8B <span style="color:#64748b">(hidden 4096, 32 layers)</span></div><div>~6.8M</div><div>~14M</div><div>~27M</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Read the scale</span>Even the largest cell, Llama-3.1-8B at \(r = 32\) with ~27M trained, is about <strong>0.3 percent</strong> of the 8B base. Doubling \(r\) roughly doubles the count; the base size barely moves it.</div>
+          <div class="callout"><span class="label">Fine print</span>Approximate, attention projections only; <strong>adding the MLP layers roughly doubles</strong> these. GQA (class 4.7) makes \(k\) and \(v\) smaller than \(q\) and \(o\). Exact counts come from the model's own dimensions.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. QLoRA -->
+    <section>
+      <h2><span class="eyebrow">On free hardware</span>QLoRA: LoRA on a 4-bit base</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>QLoRA</strong> combines LoRA with quantization (class 4.7): store the frozen base model in 4-bit so it barely uses memory, and train the small LoRA add-on on top of it in 16-bit. The heavy part shrinks, the trained part stays accurate.</p>
+            <div class="callout"><span class="label">How the two precisions work together</span>4-bit is only how the base is <strong>stored</strong>. On the forward pass each 4-bit weight is <strong>dequantized to 16-bit just for that matmul</strong>, then discarded, so the activations are full precision. The LoRA matrices \(B, A\) stay in 16-bit throughout. On backprop, gradients flow through the math but update <strong>only</strong> \(B, A\); the frozen base is never written back, so it stays 4-bit. In short: 4-bit for storage, 16-bit for the arithmetic and for the part that actually learns.</div>
+            <div class="callout"><span class="label">Why it matters</span>A base that needed a large GPU at 16-bit fits the <strong>free Colab T4 (16 GB VRAM)</strong> at 4-bit, so fine-tuning stops requiring expensive hardware. Our 0.5B model is tiny even for a T4; QLoRA is what makes far larger bases trainable there. This is the setup we prepare today and run in class 4.10 (Fine-tuning II).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="24" y="40" width="150" height="104" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="99" y="64" text-anchor="middle" font-size="10.5" font-weight="700" fill="#475569">base model</text>
+              <text x="99" y="86" text-anchor="middle" font-size="10" fill="#be123c">stored in 4-bit</text>
+              <text x="99" y="104" text-anchor="middle" font-size="9" fill="#64748b">frozen, tiny footprint</text>
+              <text x="99" y="126" text-anchor="middle" font-size="8.5" fill="#3f4a63">&#8594; 16-bit on the fly</text>
+              <text x="99" y="138" text-anchor="middle" font-size="8.5" fill="#3f4a63">(forward only)</text>
+              <rect x="196" y="62" width="98" height="60" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="245" y="86" text-anchor="middle" font-size="10" font-weight="700" fill="#065f46">LoRA add-on</text>
+              <text x="245" y="104" text-anchor="middle" font-size="9" fill="#166534">16-bit, trained</text>
+              <text x="160" y="178" text-anchor="middle" font-size="10" fill="#3f4a63">fits the free Colab T4 (16 GB)</text>
+              <text x="160" y="196" text-anchor="middle" font-size="9" fill="#047857">only the add-on receives gradients</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9a. Dequantize by example -->
+    <section>
+      <h2><span class="eyebrow">By example</span>Dequantize and discard: one row of weights</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Take one neuron with four weights. Watch them go from 16-bit, to 4-bit storage, back to 16-bit only for the multiply.</p>
+        <div class="grid-table" style="grid-template-columns: 1.5fr 2.5fr; font-size:0.9em">
+          <div class="gt-head">Stage</div><div class="gt-head">What is held</div>
+          <div class="gt-accent">True weights (bf16)</div><div><code>[ 0.42, -0.13, 0.05, -0.37 ]</code>, at 16 bits each is 64 bits total</div>
+          <div class="gt-accent">Stored in VRAM (4-bit)</div><div>codes <code>[ 15, 6, 8, 4 ]</code> (4 bits each) + one shared <code>scale = 0.42</code> per block. This is all that sits in memory.</div>
+          <div class="gt-accent">Rebuilt for the matmul (bf16)</div><div><code>table[code] &times; scale = [ 0.42, -0.13, 0.01, -0.37 ]</code>, used in <code>W &middot; x</code>, then discarded.</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Just in time, then gone</span>The 16-bit values are reconstructed in fast on-chip memory the instant they are needed, used for that one <code>W &middot; x</code>, and never written back. Next time, they are rebuilt again from the same codes. Memory only ever holds the 4-bit form.</div>
+          <div class="callout"><span class="label">Lossy on purpose</span>Notice <code>0.05</code> came back as <code>0.01</code>: the base is permanently a little wrong. That is fine, because the frozen base only needs to be roughly right, and the LoRA add-on that actually learns stays full 16-bit.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Mental model</span>4-bit is how the weight is <strong>filed away</strong>; 16-bit is the <strong>photocopy</strong> the GPU makes to do one calculation, then shreds.</div>
+      </div>
+    </section>
+
+    <!-- 9b. Open-weight vs frontier -->
+    <section>
+      <h2><span class="eyebrow">What you can actually tune</span>Fine-tuning is mostly an open-weight move</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Everything today assumes you can <strong>see the weights</strong>. That is why LoRA and QLoRA live on <strong>open-weight</strong> models (Llama, Qwen, Mistral, Gemma): you download the base, train an adapter, and host the result yourself.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Open-weight: yours to tune</span>Weights are published, so you own the whole loop, train on your hardware or a free Colab GPU, keep the adapter, and serve it wherever you like. No per-token premium, no dependence on a vendor keeping the feature alive.</div>
+          <div class="callout"><span class="label">Frontier closed models: mostly not, or costly</span>GPT, Claude, and Gemini do not release weights, so you cannot LoRA them yourself. A subset offer a <strong>managed</strong> fine-tune (your data uploaded to their platform, SFT only), but it is constrained and pricey: the <strong>tuned model is billed at a premium per token</strong>, and some require <strong>dedicated (provisioned) capacity billed by the hour whether or not you use it</strong>. Availability shifts, too (one major provider began winding its fine-tuning API down in 2026).</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Takeaway</span>Default to an open-weight base when you fine-tune. For a closed frontier model, prefer a better prompt and RAG; reach for its managed tuning only when the behavior truly cannot be gotten any other way and the ongoing cost is justified.</div>
+      </div>
+    </section>
+
+    <!-- 10. Data prep -->
+    <section>
+      <h2><span class="eyebrow">The data</span>Prepare and format the examples</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Fine-tuning is only as good as its examples. Prepare clean input-output pairs in the chat format the trainer expects, each a short conversation ending in the answer you want the model to imitate.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Quality over quantity, but enough of it</span>A few hundred clean, consistent examples beat thousands of noisy ones; every example should show the exact behavior you want, since one sloppy target teaches the wrong habit. Our shipped set is small and paraphrase-augmented for teaching; a real behavior tune still wants a few hundred to about a thousand clean examples.</div>
+          <div class="callout"><span class="label">The chat format</span>Each row is a list of messages: a <code>system</code> rule, the <code>user</code> question, and the <code>assistant</code> target answer. The trainer applies the model's chat template so training matches how the model is prompted at inference.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Train/eval disjoint -->
+    <section>
+      <h2><span class="eyebrow">A rule you must not break</span>Keep training and evaluation separate</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Split your examples into a <strong>training</strong> set (what the model learns from) and a small <strong>validation</strong> set (what you watch during training). And never train on your <strong>eval set</strong> from class 4.8 (Evaluating LLM and RAG): that is your honest, held-out test.</p>
+            <div class="callout"><span class="label">Why</span>A model scored on data it trained on looks great and generalizes poorly (overfitting, from class 2.1). The 4.8 eval set stays untouched so it can still tell you, in 4.10, whether the fine-tune actually helped.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="50" width="150" height="40" rx="7" fill="#dcfce7" stroke="#16a34a"/><text x="95" y="74" text-anchor="middle" font-size="10" fill="#065f46">train (learn)</text>
+              <rect x="180" y="50" width="60" height="40" rx="7" fill="#eff6ff" stroke="#2563eb"/><text x="210" y="74" text-anchor="middle" font-size="9" fill="#1e40af">val (watch)</text>
+              <rect x="250" y="50" width="60" height="40" rx="7" fill="#fff7ed" stroke="#f59e0b"/><text x="280" y="70" text-anchor="middle" font-size="9" fill="#b45309">eval</text><text x="280" y="82" text-anchor="middle" font-size="8" fill="#b45309">(4.8)</text>
+              <text x="160" y="120" text-anchor="middle" font-size="10" fill="#3f4a63">three disjoint sets; the eval set is never trained on</text>
+              <text x="160" y="150" text-anchor="middle" font-size="9.5" fill="#be123c">overlap means an optimistic, dishonest score</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Prepare the dataset, set the config, do not run yet</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">In the notebook, prepare a small house-style dataset for the Domain Knowledge Assistant (concise answers that always cite the publication and year), inspect it, format it, and define the QLoRA training configuration. We stop before training; class 4.10 runs it.</p>
+            <ul class="tight">
+              <li>Load and inspect the chat-format examples.</li>
+              <li>Apply the model's chat template to one example.</li>
+              <li>Split into train and validation.</li>
+              <li>Define the LoRA, 4-bit, and trainer config (not run).</li>
+            </ul>
+            <div class="callout"><span class="label">Behavior, not facts</span>The dataset teaches a consistent cited style, not new tax facts, exactly the right job for fine-tuning.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="40" y="24" width="240" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="41" text-anchor="middle" font-size="9.5" fill="#3730a3">load and inspect examples</text>
+              <line x1="160" y1="50" x2="160" y2="64" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b9)"/>
+              <rect x="40" y="66" width="240" height="26" rx="6" fill="#eff6ff" stroke="#6366f1"/><text x="160" y="83" text-anchor="middle" font-size="9.5" fill="#3730a3">format with the chat template</text>
+              <line x1="160" y1="92" x2="160" y2="106" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b9)"/>
+              <rect x="40" y="108" width="240" height="26" rx="6" fill="#eff6ff" stroke="#6366f1"/><text x="160" y="125" text-anchor="middle" font-size="9.5" fill="#3730a3">split train and validation</text>
+              <line x1="160" y1="134" x2="160" y2="148" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b9)"/>
+              <rect x="40" y="150" width="240" height="28" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="160" y="168" text-anchor="middle" font-size="9.5" fill="#065f46">define LoRA + 4-bit + trainer config</text>
+              <defs><marker id="b9" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Choose between a prompt, RAG, and fine-tuning for a given gap.</li>
+              <li>Explain that fine-tuning changes behavior, not facts.</li>
+              <li>Describe SFT, LoRA, and QLoRA, and decode \(W' = W + BA\).</li>
+              <li>Prepare and format a clean chat-style dataset.</li>
+              <li>Keep training, validation, and eval sets disjoint.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Prepare a small house-style dataset on the movie track, and write a short justification for why fine-tuning (not RAG or prompting) is the right tool for that behavior.</p>
+            <div class="callout"><span class="label">Next, class 4.10 (Fine-tuning II)</span>Run the QLoRA job on a free Colab GPU, evaluate tuned versus base on the 4.8 eval set, merge and serve, and see how models are aligned after training.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
