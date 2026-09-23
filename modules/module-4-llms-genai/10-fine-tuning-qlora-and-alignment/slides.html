@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 4.10 - Fine-tuning II: QLoRA and alignment</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 4 &middot; Class 4.10</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 4 &middot; LLMs and GenAI &middot; Class 4.10</span>
+      <h1>Fine-tuning II: QLoRA and alignment</h1>
+      <p class="lead">Run the QLoRA job on a free GPU, check honestly whether it helped, merge and serve the result, then see at intuition level how models are aligned after pretraining.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Run QLoRA<span class="step-note">Launch the training, on a free GPU.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Tuned vs base<span class="step-note">Did it help? Watch overfitting.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Merge and serve<span class="step-note">One model, deployable anywhere.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Alignment<span class="step-note">How models learn to follow us.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Closes the milestone</span>The fine-tuned component finishes the Module 4 milestone, the Domain Knowledge Assistant with RAG plus a tuned behavior.</div>
+            <div class="pill"><span class="pill-tag">Judge it honestly</span>The class 4.8 eval set is what tells you whether the fine-tune actually helped, or quietly hurt.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Launching QLoRA -->
+    <section>
+      <h2><span class="eyebrow">Run it</span>Launching the QLoRA job</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The dataset and config from class 4.9 are ready. Launching training is one call: the trainer runs the class 2.2 (How models learn) loop, forward, loss, backpropagate, update, but only on the small LoRA add-on, while the 4-bit base stays frozen.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What actually trains</span>The base model is quantized to 4-bit and frozen; gradients flow only into the LoRA matrices \(B\) and \(A\). That is why a run that would need a large GPU at full precision fits a free Colab GPU.</div>
+          <div class="callout"><span class="label">What to expect</span>Loss drops over a few epochs as the model adopts the house style. It is fast because the trained part is tiny, but not instant, which is the next slide's problem.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Pre-bake -->
+    <section>
+      <h2><span class="eyebrow">The pattern</span>Pre-baking: do not wait on the clock</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Even a small QLoRA run takes longer than a class can wait watching a progress bar. The fix is the <strong>pre-bake pattern</strong>: a finished checkpoint is prepared ahead of time, so you <em>kick off</em> the live run to see it start, then switch to the pre-baked checkpoint to evaluate, merge, and serve without waiting.</p>
+            <div class="callout"><span class="label">A general habit</span>Any slow step, a long training run, a big embedding job, a data download, is better pre-baked for a live session. Start the real thing, then work against a ready artifact.</div>
+            <div class="callout"><span class="label">To be clear</span>This is a convenience for live sessions and demos, not a production training practice. In real work you run the job to completion and use its checkpoint; reusing an already-trained checkpoint is normal, abandoning a run for a pre-made one is only to save class time.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="130" height="40" rx="8" fill="#eff6ff" stroke="#2563eb"/><text x="85" y="48" text-anchor="middle" font-size="9.5" fill="#1e40af">kick off live run</text><text x="85" y="62" text-anchor="middle" font-size="8.5" fill="#3f4a63">(keeps training)</text>
+              <rect x="170" y="30" width="130" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="235" y="48" text-anchor="middle" font-size="9.5" fill="#065f46">pre-baked checkpoint</text><text x="235" y="62" text-anchor="middle" font-size="8.5" fill="#166534">(ready now)</text>
+              <line x1="150" y1="90" x2="150" y2="112" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <line x1="235" y1="70" x2="235" y2="112" stroke="#16a34a" stroke-width="1.6" marker-end="url(#pb)"/>
+              <rect x="90" y="114" width="150" height="34" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="165" y="135" text-anchor="middle" font-size="9.5" fill="#3730a3">evaluate, merge, serve now</text>
+              <text x="160" y="176" text-anchor="middle" font-size="9.5" fill="#3f4a63">start the real run, work against the ready artifact</text>
+              <defs><marker id="pb" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#16a34a"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Tuned vs base -->
+    <section>
+      <h2><span class="eyebrow">Did it help?</span>Evaluate tuned versus base</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A fine-tune is only worth shipping if it measurably beats the base model. Run both on held-out questions and on the class 4.8 eval set, and compare: did the target behavior (the house style) improve, <em>and</em> did general ability hold?</p>
+            <div class="callout"><span class="label">Two things to check</span>Not just "is the behavior better", but also "did I break anything else". A fine-tune can nail the style yet get worse at everything outside the training distribution. Measure both.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="160" y="18" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3f4a63">house-style adherence (illustrative)</text>
+              <text x="30" y="52" font-size="9.5" fill="#3f4a63">base</text>
+              <rect x="80" y="42" width="90" height="16" rx="3" fill="#fee2e2" stroke="#be123c"/><text x="176" y="55" font-size="8.5" fill="#7f1d1d">0.40</text>
+              <text x="30" y="88" font-size="9.5" fill="#3f4a63">tuned</text>
+              <rect x="80" y="78" width="200" height="16" rx="3" fill="#dcfce7" stroke="#16a34a"/><text x="286" y="91" font-size="8.5" fill="#065f46">0.92</text>
+              <text x="160" y="130" text-anchor="middle" font-size="9.5" fill="#3f4a63">tuned cites the pub and stays concise far more often</text>
+              <text x="160" y="152" text-anchor="middle" font-size="9" fill="#be123c">also recheck general ability did not drop</text>
+              <text x="160" y="172" text-anchor="middle" font-size="8.5" fill="#94a3b8">illustrative, not measured here</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Overfitting -->
+    <section>
+      <h2><span class="eyebrow">The risk</span>Watch for overfitting</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A small dataset trained for too long makes the model <strong>memorize</strong> the examples instead of learning the pattern (overfitting, from class 2.1). It parrots training answers and gets worse on anything new.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The signs</span>Training loss keeps falling while validation loss turns back up; the model repeats training phrasings verbatim; and its answers to unrelated prompts degrade.</div>
+          <div class="callout"><span class="label">The fixes</span>Fewer epochs, more and more varied data, a smaller LoRA rank, and early stopping when validation loss rises. Always judge on held-out data, never on what it trained on.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Merge and serve -->
+    <section>
+      <h2><span class="eyebrow">Ship it</span>Merge and serve</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Training leaves you with a frozen base plus a separate LoRA add-on. <strong>Merging</strong> folds the add-on back into the weights, computing \(W' = W + BA\) once, to give a single standalone model you can serve like any other, through Ollama or an API endpoint.</p>
+            <div class="callout"><span class="label">Merge or keep separate</span>Merged is simplest to deploy: one model, no adapter to load. Keeping the adapter separate is lighter to store and lets you swap behaviors on one base. Merge when you will serve just this one.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="60" width="80" height="50" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="60" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">W</text><text x="60" y="98" text-anchor="middle" font-size="8" fill="#64748b">base</text>
+              <text x="108" y="90" text-anchor="middle" font-size="13" fill="#3f4a63">+</text>
+              <rect x="118" y="66" width="60" height="38" rx="7" fill="#dcfce7" stroke="#16a34a"/><text x="148" y="89" text-anchor="middle" font-size="10" fill="#065f46">B A</text>
+              <line x1="182" y1="85" x2="212" y2="85" stroke="#2563eb" stroke-width="1.8" marker-end="url(#mg)"/>
+              <rect x="216" y="60" width="90" height="50" rx="8" fill="#eef2ff" stroke="#6366f1"/><text x="261" y="80" text-anchor="middle" font-size="10.5" font-weight="700" fill="#3730a3">W'</text><text x="261" y="97" text-anchor="middle" font-size="8" fill="#3730a3">one model</text>
+              <text x="160" y="150" text-anchor="middle" font-size="10" fill="#3f4a63">merge once, then serve like any model</text>
+              <defs><marker id="mg" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">What precision comes out</span>The LoRA add-on is 16-bit and is never quantized. If you keep it separate, the base stays 4-bit and does the same dequantize-then-matmul at inference, with the adapter's small 16-bit term added on top. If you <strong>merge</strong>, the 4-bit base must be dequantized to add \(BA\), so the merged model is a full <strong>16-bit</strong> model, not 4-bit. To ship a small artifact, re-quantize it afterward (for example export to 4-bit GGUF for Ollama).</div>
+      </div>
+    </section>
+
+    <!-- 8. Alignment pipeline -->
+    <section>
+      <h2><span class="eyebrow">Alignment</span>From raw model to helpful assistant</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Pretraining gives a model raw next-token ability; it can continue text but not reliably follow instructions. <strong>Alignment</strong> is the stage that shapes it to be helpful and do what you ask. At intuition level it is a pipeline.</p>
+        <div class="figure-wrap">
+          <svg viewBox="0 0 900 170" xmlns="http://www.w3.org/2000/svg" style="width:100%; max-height:220px" font-family="Segoe UI, Arial, sans-serif">
+            <rect x="20" y="55" width="240" height="60" rx="10" fill="#f1f5f9" stroke="#94a3b8"/>
+            <text x="140" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#475569">1. Pretraining</text>
+            <text x="140" y="100" text-anchor="middle" font-size="10" fill="#3f4a63">raw next-token skill on huge text</text>
+            <line x1="260" y1="85" x2="320" y2="85" stroke="#2563eb" stroke-width="2" marker-end="url(#al)"/>
+            <rect x="322" y="55" width="240" height="60" rx="10" fill="#eff6ff" stroke="#2563eb"/>
+            <text x="442" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#1e40af">2. SFT</text>
+            <text x="442" y="100" text-anchor="middle" font-size="10" fill="#3f4a63">follow instructions, from labeled pairs</text>
+            <line x1="562" y1="85" x2="622" y2="85" stroke="#2563eb" stroke-width="2" marker-end="url(#al)"/>
+            <rect x="624" y="55" width="256" height="60" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+            <text x="752" y="80" text-anchor="middle" font-size="12" font-weight="700" fill="#065f46">3. Preference optimization</text>
+            <text x="752" y="100" text-anchor="middle" font-size="10" fill="#3f4a63">learn from better vs worse answers</text>
+            <text x="450" y="150" text-anchor="middle" font-size="12" fill="#3f4a63">The QLoRA SFT you just ran is stage 2. Preference optimization is stage 3.</text>
+            <defs><marker id="al" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#2563eb"/></marker></defs>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. DPO -->
+    <section>
+      <h2><span class="eyebrow">Preference optimization</span>DPO: learn from preferred vs rejected</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>DPO</strong> (Direct Preference Optimization) is the practical modern method. You give it pairs where one answer is preferred and one is rejected, and it adjusts the model so the preferred answer becomes more likely than the rejected one.</p>
+            <div class="callout"><span class="label">The idea in one line</span>Push up the probability of the chosen answer and down the probability of the rejected one: make \( p(\text{preferred}) > p(\text{rejected}) \), measured against a frozen reference copy of the model. No separate reward model or reinforcement loop, which is why it is the common default now.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="280" height="26" rx="6" fill="#ecfdf5" stroke="#10b981"/><text x="160" y="47" text-anchor="middle" font-size="9.5" fill="#065f46">one prompt, two answers</text>
+              <rect x="30" y="70" width="260" height="26" rx="5" fill="#dcfce7" stroke="#16a34a"/><text x="42" y="87" font-size="9.5" fill="#065f46">preferred answer</text><text x="278" y="87" text-anchor="end" font-size="9.5" fill="#065f46">up</text>
+              <rect x="30" y="102" width="260" height="26" rx="5" fill="#fee2e2" stroke="#be123c"/><text x="42" y="119" font-size="9.5" fill="#7f1d1d">rejected answer</text><text x="278" y="119" text-anchor="end" font-size="9.5" fill="#7f1d1d">down</text>
+              <text x="160" y="158" text-anchor="middle" font-size="10" fill="#3f4a63">shift the model toward the preferred one</text>
+            </svg>
+          </div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Where the pairs come from</span>Preferences are gathered <em>offline</em> into a fixed dataset of (prompt, chosen, rejected), then trained in one pass. The labels come from human raters, or from an AI judge, which is <strong>RLAIF</strong> (RL from AI feedback; Anthropic's Constitutional AI is the known example). The DPO pass itself can use LoRA.</div>
+          <div class="callout"><span class="label">You have probably seen this</span>When a chat app shows two answers and asks "which do you prefer?", that is exactly this: two samples for one prompt, and your click labels the pair (chosen vs rejected). It is not applied live; the votes are pooled and fed into a later training run.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. PPO / RLHF -->
+    <section>
+      <h2><span class="eyebrow">The ancestor</span>PPO with RLHF</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0"><strong>RLHF</strong> (Reinforcement Learning from Human Feedback) with <strong>PPO</strong> (Proximal Policy Optimization) was the earlier approach that made models like the first ChatGPT follow instructions. It trains a separate <em>reward model</em> from human comparisons, then uses reinforcement learning to push the model toward higher-reward answers.</p>
+        <div class="callout"><span class="label">Why we name it but do not build it</span>It works, but it is complex: a reward model, an RL loop, and careful tuning to stay stable. DPO largely reaches the same goal more simply, so PPO-RLHF is best understood as the ancestor that DPO streamlined.</div>
+      </div>
+    </section>
+
+    <!-- 11. RLVR / GRPO -->
+    <section>
+      <h2><span class="eyebrow">For reasoning</span>RLVR and GRPO</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">RLVR: a reward source</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0">Reinforcement learning from <strong>verifiable rewards</strong>. It only applies where the training prompts have ground truth, a math <strong>answer key</strong> or a <strong>test suite</strong> for code. A deterministic <em>verifier</em> replaces the human or reward model and returns pass or fail.</p>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:700; font-size:1.05em; color:var(--c-accent-dark); margin:0 0 10px">GRPO: an algorithm</h3>
+            <p style="font-size:0.9em; color:#3f4a63; margin:0"><strong>Group Relative Policy Optimization</strong>. A PPO variant with no separate value network: sample a <em>group</em> of answers per prompt, score each, and push toward those above the group's average. Efficient, and used to train many recent reasoning models.</p>
+          </div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Not the same axis</span>RLVR is <em>where the reward comes from</em>; GRPO is <em>the optimizer</em>. GRPO is not a subset of RLVR: they are usually paired (verifiable reward + GRPO, as in recent reasoning models), but each can exist without the other.</div>
+          <div class="callout"><span class="label">How "checked automatically" works</span>A program scores the output and that score is the reward: math (compare the final answer to the known one), code (run unit tests, does it compile), format (regex or JSON-schema validation), puzzles (a rules engine). No human in the loop.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Not censorship -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>Alignment is not just censorship</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">"Alignment means the model refuses things." Refusals are one small part. At its core, alignment is what turns a raw text predictor into something that follows your instructions, stays on task, and answers helpfully. Safety is one slice of a much broader helpfulness goal.</p>
+        <div class="callout"><span class="label">Put plainly</span>Without alignment, a pretrained model rambles and ignores what you asked. The SFT you ran today, and the preference methods above, are what make a model usable at all, not merely what makes it decline.</div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Run, evaluate, merge, serve</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">In the notebook, kick off the QLoRA run on the class 4.9 dataset, and while it trains, evaluate the pre-baked checkpoint against the base, then merge and serve.</p>
+            <ul class="tight">
+              <li>Launch the QLoRA SFT run (the 2.2 loop on the add-on).</li>
+              <li>Load the pre-baked checkpoint; do not wait for the live run.</li>
+              <li>Score tuned vs base on house-style adherence and the 4.8 eval set.</li>
+              <li>Merge the adapter and save a servable model.</li>
+            </ul>
+            <div class="callout"><span class="label">Honesty</span>The comparison numbers are real only when you run it; treat the shown figures as illustrative and judge on your own run.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="60" y="20" width="200" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="37" text-anchor="middle" font-size="9.5" fill="#3730a3">kick off QLoRA run</text>
+              <line x1="160" y1="46" x2="160" y2="60" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b10)"/>
+              <rect x="60" y="62" width="200" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="79" text-anchor="middle" font-size="9.5" fill="#3730a3">evaluate pre-baked vs base</text>
+              <line x1="160" y1="88" x2="160" y2="102" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b10)"/>
+              <rect x="60" y="104" width="200" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="121" text-anchor="middle" font-size="9.5" fill="#3730a3">merge the adapter</text>
+              <line x1="160" y1="130" x2="160" y2="144" stroke="#2563eb" stroke-width="1.4" marker-end="url(#b10)"/>
+              <rect x="60" y="146" width="200" height="28" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="160" y="164" text-anchor="middle" font-size="9.5" fill="#065f46">save and serve one model</text>
+              <defs><marker id="b10" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2563eb"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Milestone + wrap -->
+    <section>
+      <h2><span class="eyebrow">Milestone, part 2</span>The Domain Knowledge Assistant, complete</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Deliverable</div>
+            <p class="stmt" style="margin-top:6px">Add the fine-tuned component to your assistant, and write a short, honest note: "should I have used RAG instead?" arguing why fine-tuning was, or was not, the right lever for this behavior.</p>
+            <div class="callout"><span class="label">Why the note matters</span>The senior skill from class 4.9 is choosing the lever. Defending the choice in writing, against the cheaper alternatives, is the point of the deliverable.</div>
+          </div>
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Run a QLoRA fine-tune on a free GPU.</li>
+              <li>Evaluate tuned vs base honestly and watch overfitting.</li>
+              <li>Merge and serve the result as one model.</li>
+              <li>Explain alignment: SFT, then DPO, PPO-RLHF, and RLVR/GRPO.</li>
+            </ul>
+            <div class="callout"><span class="label">Next, Module 5 (AI Agents)</span>The assistant becomes an agent's first tool: give it a loop, more tools, and memory so it can act, not just answer.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: {
+      primaryColor: '#ffffff', primaryTextColor: '#172033', primaryBorderColor: '#2563eb',
+      lineColor: '#2563eb', fontFamily: 'Segoe UI, Helvetica, Arial, sans-serif', fontSize: '16px' },
+    flowchart: { nodeSpacing: 45, rankSpacing: 50, htmlLabels: true } });
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.mermaid) { mermaid.run(); }
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>

@@ -177,7 +177,6 @@ modules/module-4-llms-genai/06-rag-with-frameworks/micro-assignment/solution/
 modules/module-4-llms-genai/07-how-llms-are-served/micro-assignment/solution/
 modules/module-4-llms-genai/08-evaluating-llm-and-rag/micro-assignment/solution/
 modules/module-4-llms-genai/09-fine-tuning-decision-and-data/micro-assignment/solution/
-modules/module-4-llms-genai/10-fine-tuning-qlora-and-alignment/
 modules/module-4-llms-genai/10-fine-tuning-qlora-and-alignment/micro-assignment/solution/
 modules/module-4-llms-genai/milestone-assignment/
 modules/module-4-llms-genai/milestone-assignment/solution/
@@ -236,4 +235,6 @@ modules/module-7-capstone/suggested_reading_list/
 **/code/data/embeddings.npy
 **/code/data/ids.json
 **/code/data/chroma/
+**/code/dka-lora
+**/code/dka-merged
 
