@@ -48,7 +48,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [4.8 Evaluating LLM and RAG](modules/module-4-llms-genai/08-evaluating-llm-and-rag/)
 - [4.9 Fine-tuning I: the decision and data](modules/module-4-llms-genai/09-fine-tuning-decision-and-data/)
 - [4.10 Fine-tuning II: QLoRA and alignment](modules/module-4-llms-genai/10-fine-tuning-qlora-and-alignment/)
-- Module 4 milestone assignment (upcoming)
+- [Module 4 milestone assignment](modules/module-4-llms-genai/milestone-assignment/)
 - Suggested reading (upcoming)
 
 ### Module 5: AI Agents
