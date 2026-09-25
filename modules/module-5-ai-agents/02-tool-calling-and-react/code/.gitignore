@@ -1,0 +1,6 @@
+data/chroma/
+__pycache__/
+*.pyc
+embeddings.npy
+ids.json
+notes.txt

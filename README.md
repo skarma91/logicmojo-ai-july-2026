@@ -53,7 +53,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 
 ### Module 5: AI Agents
 - [5.1 What is an agent](modules/module-5-ai-agents/01-what-is-an-agent/)
-- 5.2 Tool calling and ReAct (upcoming)
+- [5.2 Tool calling and ReAct](modules/module-5-ai-agents/02-tool-calling-and-react/)
 - 5.3 Memory for agents (upcoming)
 - 5.4 LangGraph (upcoming)
 - 5.5 MCP (upcoming)
