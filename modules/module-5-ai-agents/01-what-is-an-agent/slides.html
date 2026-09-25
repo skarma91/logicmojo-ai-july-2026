@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 5.1 - What is an agent? The loop</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 5 &middot; Class 5.1</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 5 &middot; AI agents &middot; Class 5.1</span>
+      <h1>What is an agent? The loop</h1>
+      <p class="lead">RAG answered questions from documents. An agent takes actions: it decides to use a tool, looks at the result, and decides again, until the task is done. Today we build that loop.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>The road for this class</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">What an agent is<span class="step-note">LLM, tools, loop, memory.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The think-act-observe loop<span class="step-note">And how it stops.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Agent versus workflow<span class="step-note">When not to use an agent.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The coding agent<span class="step-note">The modern default: review and verify.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">The shift</span>From answering to acting. This is the foundation for every agent in Modules 5 and 6.</div>
+            <div class="pill"><span class="pill-tag">Environment</span>Back to <code>.py</code> projects. The Module 4 retriever becomes the agent's first tool.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The four parts -->
+    <section>
+      <h2><span class="eyebrow">The definition</span>An agent is four parts working together</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A plain LLM answers in one shot. An <strong>agent</strong> can decide to act, look at what happened, and decide again. Four parts make that possible.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The LLM (the brain)</span>Decides what to do next at each step. It is the reasoning engine, not the whole system.</div>
+          <div class="callout"><span class="label">Tools (things it can do)</span>Functions it can call to affect the world: search a corpus, hit an API, run code. Today's one tool is the Module 4 retriever.</div>
+          <div class="callout"><span class="label">The loop (keep going)</span>Repeat think, act, observe until the task is finished, not a single reply.</div>
+          <div class="callout"><span class="label">Memory (what it carries)</span>What the agent keeps between steps and sessions (built out in class 5.3, Memory for agents).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Model-decided control flow -->
+    <section>
+      <h2><span class="eyebrow">The defining property</span>The model decides the control flow</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">In ordinary code, <strong>you</strong> write the sequence of steps. In an agent, the <strong>LLM chooses the next action at runtime</strong>, based on what it has seen so far. That single change is the whole idea, and the whole risk.</p>
+            <div class="callout"><span class="label">Why it is powerful</span>The path can adapt to each input: search, then decide to search again with a better query, then answer. You did not have to script that branch.</div>
+            <div class="callout"><span class="label">Why it is risky</span>If the model drives, the model can loop forever, call the wrong tool, or run up cost. That is why bounding the loop matters from day one (class 5.6).</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- Left: fixed code, a straight sequence you wrote -->
+              <text x="78" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">fixed code</text>
+              <rect x="28" y="34" width="100" height="28" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="78" y="52" text-anchor="middle" font-size="9.5" fill="#3730a3">step 1</text>
+              <line x1="78" y1="62" x2="78" y2="76" stroke="#6366f1" stroke-width="1.4" marker-end="url(#a4)"/>
+              <rect x="28" y="78" width="100" height="28" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="78" y="96" text-anchor="middle" font-size="9.5" fill="#3730a3">step 2</text>
+              <line x1="78" y1="106" x2="78" y2="120" stroke="#6366f1" stroke-width="1.4" marker-end="url(#a4)"/>
+              <rect x="28" y="122" width="100" height="28" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="78" y="140" text-anchor="middle" font-size="9.5" fill="#3730a3">step 3</text>
+              <text x="78" y="176" text-anchor="middle" font-size="9" fill="#64748b">you wrote the path</text>
+              <!-- Divider -->
+              <line x1="160" y1="30" x2="160" y2="180" stroke="#e2e8f0" stroke-width="1"/>
+              <!-- Right: agent, a loop the model drives -->
+              <text x="242" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">agent</text>
+              <circle cx="242" cy="100" r="48" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+              <path d="M242 52 l9 -6 l0 12 z" fill="#16a34a"/>
+              <text x="242" y="96" text-anchor="middle" font-size="10" font-weight="700" fill="#065f46">model picks</text>
+              <text x="242" y="111" text-anchor="middle" font-size="10" font-weight="700" fill="#065f46">each step</text>
+              <text x="242" y="176" text-anchor="middle" font-size="9" fill="#166534">the model drives the path</text>
+              <defs><marker id="a4" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6366f1"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Not just a chatbot -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>An agent is not just a chatbot</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1fr; font-size:0.9em">
+          <div class="gt-head">A chatbot</div><div class="gt-head">An agent</div>
+          <div>Takes a message, returns a reply. One turn in, one turn out.</div><div>Takes a goal, then loops: decides, acts with tools, observes, repeats.</div>
+          <div>No access to the world beyond its text.</div><div>Calls tools that read and change the world.</div>
+          <div>Stateless unless you resend history.</div><div>Carries memory across steps and sessions on purpose.</div>
+          <div class="gt-accent">Answers.</div><div class="gt-accent">Gets things done.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The line</span>If it only produces text in response to text, it is a chatbot. The moment it can decide to take an action and react to the result, it is an agent.</div>
+      </div>
+    </section>
+
+    <!-- 6. The loop figure -->
+    <section>
+      <h2><span class="eyebrow">The core loop</span>Think, act, observe</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Each turn the agent <strong>thinks</strong> (reasons about what to do), <strong>acts</strong> (calls a tool), and <strong>observes</strong> (reads the result), then loops. It exits when it has the answer.</p>
+            <div class="callout"><span class="label">The analogy</span>A person with a to-do list and a toolbox: do one step, check the outcome, decide the next. Not a fixed recipe, a reaction to what you find.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- Loop back over the top: Observe -> Think, arcing up -->
+              <path d="M261 60 Q160 18 59 60" fill="none" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#l6)"/>
+              <text x="160" y="20" text-anchor="middle" font-size="9" fill="#64748b">not done: loop again</text>
+              <!-- The three stages in a row -->
+              <rect x="18" y="60" width="82" height="36" rx="8" fill="#eef2ff" stroke="#6366f1"/><text x="59" y="83" text-anchor="middle" font-size="11" font-weight="700" fill="#3730a3">Think</text>
+              <rect x="119" y="60" width="82" height="36" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="160" y="83" text-anchor="middle" font-size="11" font-weight="700" fill="#065f46">Act</text>
+              <rect x="220" y="60" width="82" height="36" rx="8" fill="#fef9c3" stroke="#ca8a04"/><text x="261" y="83" text-anchor="middle" font-size="11" font-weight="700" fill="#854d0e">Observe</text>
+              <!-- Forward arrows -->
+              <line x1="100" y1="78" x2="117" y2="78" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#l6)"/>
+              <line x1="201" y1="78" x2="218" y2="78" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#l6)"/>
+              <!-- Exit: Think -> Answer, one arrow down -->
+              <line x1="59" y1="96" x2="59" y2="150" stroke="#be123c" stroke-width="1.6" marker-end="url(#l6r)"/>
+              <text x="67" y="126" text-anchor="start" font-size="9" fill="#7f1d1d">final answer or cap</text>
+              <rect x="18" y="152" width="82" height="34" rx="8" fill="#fee2e2" stroke="#be123c"/><text x="59" y="174" text-anchor="middle" font-size="11" font-weight="700" fill="#7f1d1d">Answer</text>
+              <defs>
+                <marker id="l6" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="l6r" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#be123c"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Termination -->
+    <section>
+      <h2><span class="eyebrow">A detail that is not optional</span>How the loop terminates</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">An agent does <strong>not</strong> stop on its own. You design the exit. Two conditions end the loop:</p>
+        <div class="cols cols-2" style="align-items:start">
+          <div class="callout"><span class="label">Success: a final answer</span>The model, instead of requesting a tool, signals it is done (in our build, it returns a <code>final</code> answer). That is the normal exit, the loop ends because the task is complete.</div>
+          <div class="callout"><span class="label">Safety: a step cap</span>A maximum number of iterations (and later a time or cost budget, class 5.6). The loop runs only while
+            <span style="display:block; text-align:center; margin:8px 0">\( \text{steps} \le \text{max\_steps} \)</span>
+            so even if the model never says it is done, the cap stops it. Here <strong>steps</strong> is how many times the loop has run and <strong>max_steps</strong> is the ceiling you set.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Why from day one</span>A loop the model drives can otherwise run forever, so we ship this cap in the very first build, not as an afterthought. It is the first of the reliability rails built out in class 5.6.</div>
+      </div>
+    </section>
+
+    <!-- 8. The agent system prompt -->
+    <section>
+      <h2><span class="eyebrow">What makes it an agent</span>The agent system prompt</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A chat model becomes an agent mostly through its <strong>system prompt plus the tool schemas</strong>. The prompt states the goal, lists the tools, sets the output contract, and gives the stopping rule. The model fills in the rest.</p>
+        <div style="background:#f8fafc; border:1px solid var(--c-line); border-left:4px solid #6366f1; border-radius:10px; padding:16px 22px; margin:6px 0 10px; font-family:var(--font-mono, monospace); font-size:0.82em; line-height:1.7; color:#1e293b; white-space:pre-wrap">You are an agent that answers questions using tools when needed.
+<span style="color:#475569">Available tools:</span>
+  <span style="color:#065f46; font-weight:600">search_tax_docs(query)</span>: search official tax publications for a fact.
+
+On each turn reply with EXACTLY ONE JSON object, either:
+  a tool call:       <span style="color:#3730a3">{"tool": "search_tax_docs", "arguments": {"query": "..."}}</span>
+  or a final answer: <span style="color:#7f1d1d">{"final": "...cite the [id] sources you used"}</span>
+
+Call a tool only when you need it; otherwise answer directly.</div>
+        <div class="callout"><span class="label">The point</span>The loop and the contract are engineered, not innate. Change this prompt and you change how the agent behaves, which tools it reaches for, and when it stops.</div>
+      </div>
+    </section>
+
+    <!-- 9. Agent vs workflow -->
+    <section>
+      <h2><span class="eyebrow">The senior distinction</span>Agent versus workflow</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 0.8fr 1.6fr 1.6fr; font-size:0.86em">
+          <div class="gt-head"></div><div class="gt-head">Workflow</div><div class="gt-head">Agent</div>
+          <div class="gt-accent">Control flow</div><div>fixed: you write the sequence of calls.</div><div>dynamic: the model chooses the next step.</div>
+          <div class="gt-accent">Best for</div><div>known, repeatable tasks (extract, then classify, then format).</div><div>open-ended tasks where the steps are not known in advance.</div>
+          <div class="gt-accent">Cost and predictability</div><div>cheaper, faster, easy to test.</div><div>more calls, less predictable, harder to test.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">In practice</span>Most production "agents" are mostly a fixed workflow with a small agentic core where the path genuinely varies. Reach for a workflow first; add agency only where you need it.</div>
+      </div>
+    </section>
+
+    <!-- 10. When not to use an agent -->
+    <section>
+      <h2><span class="eyebrow">Restraint</span>When not to use an agent</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Do not reach for an agent when</div>
+            <ul class="tight">
+              <li>The steps are fixed and known: write a workflow.</li>
+              <li>One LLM call, or one call plus RAG, already solves it.</li>
+              <li>You cannot afford unpredictable cost or latency.</li>
+              <li>The task must be exactly reproducible every run.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">An agent earns its keep when</div>
+            <ul class="tight">
+              <li>The path depends on what is found along the way.</li>
+              <li>The task needs several tools chosen at runtime.</li>
+              <li>The number of steps is not known in advance.</li>
+              <li>The work is genuinely open-ended.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The rule</span>Use the simplest thing that works. An agent is the most powerful and the most expensive and least predictable option, so it is the last one to reach for, not the first.</div>
+      </div>
+    </section>
+
+    <!-- 11. Why agents exist -->
+    <section>
+      <h2><span class="eyebrow">The gap they fill</span>Why agents exist</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Callback to class 4.6. RAG can <em>answer from documents</em>, but it cannot take actions, call APIs, or run a multi-step task. Agents fill exactly that gap.</p>
+            <div class="callout"><span class="label">A task RAG cannot do</span>"Look up this year's HSA limit, then check whether my planned contribution exceeds it, and if so tell me by how much." RAG retrieves the limit; only an agent can then <em>use</em> it: retrieve, compute, decide, respond.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="30" width="120" height="120" rx="8" fill="#eff6ff" stroke="#2563eb"/>
+              <text x="80" y="52" text-anchor="middle" font-size="10.5" font-weight="700" fill="#1e40af">RAG</text>
+              <text x="80" y="80" text-anchor="middle" font-size="9" fill="#3f4a63">retrieve</text>
+              <text x="80" y="100" text-anchor="middle" font-size="9" fill="#3f4a63">answer</text>
+              <text x="80" y="132" text-anchor="middle" font-size="8.5" fill="#1e40af">knows things</text>
+              <rect x="160" y="30" width="120" height="120" rx="8" fill="#ecfdf5" stroke="#10b981"/>
+              <text x="220" y="52" text-anchor="middle" font-size="10.5" font-weight="700" fill="#065f46">Agent</text>
+              <text x="220" y="76" text-anchor="middle" font-size="9" fill="#3f4a63">retrieve + act</text>
+              <text x="220" y="94" text-anchor="middle" font-size="9" fill="#3f4a63">call APIs</text>
+              <text x="220" y="112" text-anchor="middle" font-size="9" fill="#3f4a63">multi-step</text>
+              <text x="220" y="134" text-anchor="middle" font-size="8.5" fill="#065f46">does things</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Coding agents, introduced -->
+    <section>
+      <h2><span class="eyebrow">A modern shift in the workplace</span>Coding agents: pick one and use it</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">How software gets written has shifted: most code today is <strong>drafted by a coding agent and reviewed by a human</strong>. And a coding agent is itself the loop you are learning today, its tools edit files and run commands, so it thinks, acts, observes, and repeats. What the foundations gave you is the judgment to drive one well and to catch what it gets wrong. From here on, use one.</p>
+        <div class="callout"><span class="label">The popular options (pick what you have)</span><strong>Claude Code</strong>, <strong>OpenAI Codex CLI</strong>, <strong>GitHub Copilot</strong>, <strong>Cursor</strong>, and <strong>opencode</strong>. They span free and paid, local and hosted. This course does not mandate one and builds nothing on a specific tool, so choose whichever fits your access and platform.</div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Review and verify</span>The rule from here on: let it draft and scaffold, then read every line before you keep it. You own the code; the agent drafts, you verify.</div>
+          <div class="callout"><span class="label">Misconception</span>"The coding agent wrote it, so I do not need to understand it." Counter: you own every line. Unread generated code is a liability, not a shortcut.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Hand-roll the simplest agent loop</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">One tool (the Module 4 retriever), the think-act-observe loop, and a step cap. The model returns one JSON object per turn (the class 4.3 manual protocol): a tool call, or a final answer.</p>
+            <ul class="tight">
+              <li>Register the retriever with a name and a description.</li>
+              <li>Loop: model emits JSON, we run any tool, feed the result back.</li>
+              <li>Exit on a <code>final</code> answer, or when the step cap is hit.</li>
+              <li>One demo question needs the tool; one needs no tool at all.</li>
+            </ul>
+            <div class="callout"><span class="label">Native calling is next</span>Class 5.2 replaces this hand-parsed JSON with the provider's native tool-calling API, and contrasts the two.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- model emits one JSON -->
+              <rect x="100" y="14" width="120" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="160" y="33" text-anchor="middle" font-size="9.5" fill="#3730a3">model emits one JSON</text>
+              <line x1="160" y1="44" x2="160" y2="61" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#b13)"/>
+              <!-- decision diamond -->
+              <path d="M160 62 L206 86 L160 110 L114 86 Z" fill="#fef9c3" stroke="#ca8a04"/><text x="160" y="89" text-anchor="middle" font-size="8.5" fill="#854d0e">tool or final?</text>
+              <!-- final branch: right -->
+              <line x1="206" y1="86" x2="230" y2="86" stroke="#be123c" stroke-width="1.6" marker-end="url(#b13r)"/><text x="219" y="79" text-anchor="middle" font-size="8.5" fill="#7f1d1d">final</text>
+              <rect x="232" y="70" width="82" height="32" rx="7" fill="#fee2e2" stroke="#be123c"/><text x="273" y="90" text-anchor="middle" font-size="9" fill="#7f1d1d">return answer</text>
+              <!-- tool branch: straight down -->
+              <line x1="160" y1="110" x2="160" y2="140" stroke="#16a34a" stroke-width="1.6" marker-end="url(#b13g)"/><text x="172" y="128" text-anchor="middle" font-size="8.5" fill="#065f46">tool</text>
+              <rect x="105" y="142" width="110" height="32" rx="7" fill="#dcfce7" stroke="#16a34a"/><text x="160" y="162" text-anchor="middle" font-size="9" fill="#065f46">run tool, observe</text>
+              <!-- loop back: run-tool left, up the far left, into model box left -->
+              <path d="M105 158 Q40 158 40 92 Q40 29 98 29" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#b13g)"/>
+              <text x="46" y="196" text-anchor="start" font-size="8.5" fill="#166534">loop back until final</text>
+              <text x="242" y="196" text-anchor="middle" font-size="8.5" fill="#64748b">bounded by max_steps</text>
+              <defs>
+                <marker id="b13" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="b13r" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#be123c"/></marker>
+                <marker id="b13g" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#16a34a"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Say what an agent is: LLM, tools, loop, memory, with model-decided control flow.</li>
+              <li>Draw the think-act-observe loop and its two exits.</li>
+              <li>Decide between an agent and a workflow, and when to use neither.</li>
+              <li>Hand-roll a bounded agent loop with one real tool.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Add a second tool and show the agent choosing between them by task, including one question where the right move is to use no tool at all.</p>
+            <div class="callout"><span class="label">Next, class 5.2 (Tool calling and ReAct)</span>Make tool use reliable: native tool calling versus ReAct, the real message protocol, schemas, and handling failures.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>

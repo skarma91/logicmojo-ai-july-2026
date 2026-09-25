@@ -173,7 +173,6 @@ modules/module-4-llms-genai/09-fine-tuning-decision-and-data/micro-assignment/so
 modules/module-4-llms-genai/10-fine-tuning-qlora-and-alignment/micro-assignment/solution/
 modules/module-4-llms-genai/milestone-assignment/solution/
 
-modules/module-5-ai-agents/01-what-is-an-agent/
 modules/module-5-ai-agents/01-what-is-an-agent/micro-assignment/solution/
 modules/module-5-ai-agents/02-tool-calling-and-react/
 modules/module-5-ai-agents/02-tool-calling-and-react/micro-assignment/solution/
@@ -226,6 +225,9 @@ modules/module-7-capstone/suggested_reading_list/
 **/code/data/embeddings.npy
 **/code/data/ids.json
 **/code/data/chroma/
+
+# Module 4 fine-tuning: ignore the LoRA and merged model checkpoints, which are large and can be regenerated from the code and data.
 **/code/dka-lora
 **/code/dka-merged
-
+*.gguf
+*.safetensors
