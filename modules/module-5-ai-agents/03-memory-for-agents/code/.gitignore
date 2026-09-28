@@ -1,0 +1,7 @@
+data/chroma/
+__pycache__/
+*.pyc
+embeddings.npy
+ids.json
+data/memory*.jsonl
+data/mem_emb*.npy

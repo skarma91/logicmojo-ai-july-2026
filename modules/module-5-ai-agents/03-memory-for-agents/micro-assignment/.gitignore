@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+data/memory*.jsonl
+data/mem_emb*.npy

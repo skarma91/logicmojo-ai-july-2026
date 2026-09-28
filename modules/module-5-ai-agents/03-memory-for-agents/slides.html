@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 5.3 - Memory for agents</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 5 &middot; Class 5.3</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 5 &middot; AI agents &middot; Class 5.3</span>
+      <h1>Memory for agents</h1>
+      <p class="lead">The model forgets everything between calls. An agent that remembers your name, your preferences, and what it just did is not magic, it is memory you design, and manage, on purpose.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>Give the agent memory that pays for itself</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The kinds of memory<span class="step-note">Working, episodic, semantic.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The write policy<span class="step-note">What to keep, and updating vs duplicating.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">The token budget<span class="step-note">Memory is not free.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Compaction<span class="step-note">Summarize the old, keep it bounded.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Recall</span>"The model does not remember our past chats" (class 3.5). Any memory exists because you built it.</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Embeddings and the vector store from class 4.4 (Embeddings and vector databases).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Taxonomy -->
+    <section>
+      <h2><span class="eyebrow">The kinds</span>"Memory" is several different things</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Lumping it all together is the first mistake. Four kinds, each with a different home and lifetime.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Working memory</span>The running conversation and intermediate results in the <em>current context</em>. The notepad on your desk. Lives for this task.</div>
+          <div class="callout"><span class="label">Episodic memory</span>Past events and conversations, stored and retrieved by similarity. The diary of what happened. Lives across sessions.</div>
+          <div class="callout"><span class="label">Semantic memory</span>Durable facts and preferences distilled from those events ("files as head of household"). What you have internalized.</div>
+          <div class="callout"><span class="label">Procedural memory</span>Learned instructions or skills, usually folded into the system prompt. How to do the job.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Concrete forms -->
+    <section>
+      <h2><span class="eyebrow">In code</span>The concrete forms you will use</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.1fr 1.9fr; font-size:0.9em">
+          <div class="gt-head">Form</div><div class="gt-head">What it is, and which kind it serves</div>
+          <div class="gt-accent">Conversation buffer</div><div>the full recent dialogue held in context (working memory).</div>
+          <div class="gt-accent">Buffer window</div><div>only the last k turns, so it cannot grow without bound (working memory).</div>
+          <div class="gt-accent">Running summary</div><div>older turns compacted into a short summary (working memory, bounded).</div>
+          <div class="gt-accent">Vector store</div><div>facts and past turns embedded and retrieved by similarity (episodic and semantic, the class 4.4 store).</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The build uses two</span>A <code>Conversation</code> (window plus running summary) for working memory, and a <code>MemoryStore</code> (vector store) for long-term. Same embedding model as class 4.4.</div>
+      </div>
+    </section>
+
+    <!-- 5. Working memory -->
+    <section>
+      <h2><span class="eyebrow">Short-term</span>Working memory lives in the context</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Working memory is just what you put in the prompt this turn: the recent turns and any intermediate tool results. It is fast and always available, but it is <strong>finite</strong> and <strong>paid for on every call</strong>.</p>
+            <div class="callout"><span class="label">The catch</span>Keep the whole conversation verbatim and it grows every turn, raising cost and eventually overflowing the window. Working memory must be bounded, which is what compaction does.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="40" y="20" width="220" height="140" rx="10" fill="#f8fafc" stroke="#94a3b8"/>
+              <text x="150" y="38" text-anchor="middle" font-size="10" font-weight="700" fill="#475569">the context window</text>
+              <rect x="54" y="50" width="192" height="18" rx="4" fill="#eef2ff" stroke="#6366f1"/><text x="60" y="63" font-size="8" fill="#3730a3">system prompt</text>
+              <rect x="54" y="72" width="192" height="18" rx="4" fill="#dcfce7" stroke="#16a34a"/><text x="60" y="85" font-size="8" fill="#065f46">tool schemas</text>
+              <rect x="54" y="94" width="192" height="18" rx="4" fill="#fef9c3" stroke="#ca8a04"/><text x="60" y="107" font-size="8" fill="#854d0e">retrieved memory</text>
+              <rect x="54" y="116" width="192" height="36" rx="4" fill="#eff6ff" stroke="#2563eb"/><text x="60" y="130" font-size="8" fill="#1e40af">recent turns (grows each turn)</text><text x="60" y="144" font-size="8" fill="#1e40af">... until it overflows</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Long-term memory -->
+    <section>
+      <h2><span class="eyebrow">Long-term</span>Facts that outlive the conversation</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Long-term memory is a <strong>vector store</strong> (the class 4.4 store): embed each fact or past turn, and at query time retrieve the few most relevant and inject them into the prompt. This is RAG, pointed at the user's own history instead of a document corpus.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Write</span>When something durable happens (a preference, a decision), embed it and store it, with the dedupe and update policy on the next slides.</div>
+          <div class="callout"><span class="label">Read</span>Each turn, search the store with the current question and add the top matches as context, so only what is relevant enters the prompt, not everything.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Write policy -->
+    <section>
+      <h2><span class="eyebrow">The hard part</span>The write policy: what to keep, and when</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Reading memory is easy. The hard, and most-skipped, part is <strong>writing</strong> it well. Store too much and retrieval turns noisy and expensive; store too little and the agent forgets.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What to keep</span>Durable facts and stated preferences ("keep answers short", "files as head of household"). Drop transient chatter and one-off details.</div>
+          <div class="callout"><span class="label">When to write</span>At the end of a turn, on an explicit "remember this", or when a fact is confirmed. Not every sentence, or the store fills with noise.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Dedupe/update -->
+    <section>
+      <h2><span class="eyebrow">Do not pile up copies</span>Update a changed fact, do not duplicate it</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">If the user's filing status changes, you want <strong>one</strong> current fact, not two contradictory ones. On write: if a fact with the same <strong>key</strong> exists, overwrite it; if the new text is a near-duplicate, merge into it. Only genuinely new facts append.</p>
+            <div class="callout"><span class="label">In the build</span><code>MemoryStore.add(text, key=...)</code>: same key overwrites; cosine similarity above a threshold merges; otherwise it appends.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="24" width="150" height="24" rx="6" fill="#fee2e2" stroke="#be123c"/><text x="95" y="40" text-anchor="middle" font-size="8.5" fill="#7f1d1d">status: single</text>
+              <text x="185" y="40" font-size="9" fill="#3f4a63">new: married</text>
+              <line x1="95" y1="48" x2="95" y2="72" stroke="#16a34a" stroke-width="1.5" marker-end="url(#u)"/><text x="128" y="64" font-size="8" fill="#065f46">same key</text>
+              <rect x="20" y="74" width="150" height="24" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="95" y="90" text-anchor="middle" font-size="8.5" fill="#065f46">status: married</text>
+              <text x="150" y="128" text-anchor="middle" font-size="9" fill="#3f4a63">one fact, overwritten, not two</text>
+              <defs><marker id="u" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#16a34a"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Staleness -->
+    <section>
+      <h2><span class="eyebrow">A sharp warning</span>A wrong memory is worse than no memory</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Stored memories go out of date and can contradict each other or the current context. A memory that is retrieved but <strong>wrong</strong> actively misleads the agent, worse than having nothing, because it answers confidently from a stale fact.</p>
+        <div class="callout"><span class="label">Guard against it</span>Prefer updating over appending (previous slide), timestamp facts where recency matters, and when the current turn conflicts with a stored memory, trust the turn and update the store. Curate on write so reads stay trustworthy.</div>
+      </div>
+    </section>
+
+    <!-- 10. Context-window pressure -->
+    <section>
+      <h2><span class="eyebrow">The pressure</span>A long-running agent fills its own window</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Every turn adds history. Left alone, the context grows until cost climbs and the important details get buried or pushed out entirely (the finite window from class 3.5, From models to LLMs).</p>
+            <div class="callout"><span class="label">Two failure modes</span>Cost grows with every turn you carry, and quality drops as the signal (the current task) is diluted by pages of old chatter.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="30" y="20" width="60" height="130" rx="6" fill="#f1f5f9" stroke="#94a3b8"/><rect x="30" y="110" width="60" height="40" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="60" y="164" text-anchor="middle" font-size="8" fill="#475569">turn 1</text>
+              <rect x="120" y="20" width="60" height="130" rx="6" fill="#f1f5f9" stroke="#94a3b8"/><rect x="120" y="70" width="60" height="80" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="150" y="164" text-anchor="middle" font-size="8" fill="#475569">turn 10</text>
+              <rect x="210" y="20" width="60" height="130" rx="6" fill="#f1f5f9" stroke="#94a3b8"/><rect x="210" y="28" width="60" height="122" rx="6" fill="#fee2e2" stroke="#be123c"/><text x="240" y="164" text-anchor="middle" font-size="8" fill="#475569">turn 30</text>
+              <text x="150" y="14" text-anchor="middle" font-size="8.5" fill="#64748b">history fills the window</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Token budget formula -->
+    <section>
+      <h2><span class="eyebrow">The math</span>What each turn actually costs</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The tokens you send per turn are the sum of everything in the prompt:</p>
+        <p style="text-align:center; margin:14px 0">$$ T_{\text{turn}} = T_{\text{system}} + T_{\text{tools}} + T_{\text{memory}} + T_{\text{summary}} + T_{\text{recent}} $$</p>
+        <div class="callout"><span class="label">Reading it</span><strong>T</strong> is a token count. <strong>system</strong> is the fixed prompt, <strong>tools</strong> the schemas (class 5.2), <strong>memory</strong> the retrieved long-term facts, <strong>summary</strong> the compacted history, and <strong>recent</strong> the verbatim last turns. Cost is roughly \(T_{\text{turn}}\) times the price per token, paid <em>every</em> turn. Only the last two grow with conversation length, so those are what compaction and a buffer window keep in check.</div>
+      </div>
+    </section>
+
+    <!-- 12. Compaction -->
+    <section>
+      <h2><span class="eyebrow">The fix</span>Compaction: summarize the old, keep the recent</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0"><strong>Compaction</strong> folds the oldest turns into a short running summary, then drops them. The essentials survive in a few tokens while the raw transcript does not keep growing. Recent turns stay verbatim; everything older becomes the summary.</p>
+            <div class="callout"><span class="label">In the build</span>When the buffer passes <code>keep_last</code>, one model call rewrites the summary to fold in the oldest turns, and they are removed. The token count stays bounded.</div>
+            <div class="callout"><span class="label">Compaction is lossy</span>A summary is smaller because it drops detail, so a fact buried in an old turn can be lost. That is why durable facts belong in long-term memory (write them to the store), not left to survive the summary. Keep the summary prompt focused on decisions and preferences so what matters is what it keeps.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="20" width="90" height="18" rx="4" fill="#e2e8f0" stroke="#94a3b8"/><text x="65" y="33" text-anchor="middle" font-size="7.5" fill="#475569">old turn</text>
+              <rect x="20" y="42" width="90" height="18" rx="4" fill="#e2e8f0" stroke="#94a3b8"/><text x="65" y="55" text-anchor="middle" font-size="7.5" fill="#475569">old turn</text>
+              <rect x="20" y="64" width="90" height="18" rx="4" fill="#e2e8f0" stroke="#94a3b8"/><text x="65" y="77" text-anchor="middle" font-size="7.5" fill="#475569">old turn</text>
+              <line x1="115" y1="51" x2="150" y2="51" stroke="#3f4a63" stroke-width="1.5" marker-end="url(#c)"/>
+              <rect x="152" y="38" width="128" height="28" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="216" y="55" text-anchor="middle" font-size="8" fill="#854d0e">running summary</text>
+              <rect x="152" y="96" width="128" height="18" rx="4" fill="#eff6ff" stroke="#2563eb"/><text x="216" y="109" text-anchor="middle" font-size="7.5" fill="#1e40af">recent turn (kept)</text>
+              <rect x="152" y="118" width="128" height="18" rx="4" fill="#eff6ff" stroke="#2563eb"/><text x="216" y="131" text-anchor="middle" font-size="7.5" fill="#1e40af">recent turn (kept)</text>
+              <text x="150" y="164" text-anchor="middle" font-size="8" fill="#64748b">old turns compacted; recent kept verbatim</text>
+              <defs><marker id="c" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Do not dump -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"Just put everything in the prompt"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The tempting shortcut is to keep the entire history and the whole memory store in every prompt. With long context windows it even seems to work at first.</p>
+        <div class="callout"><span class="label">Why it fails</span>Cost climbs every turn; latency rises; and quality drops as the key details are buried in noise (models attend worse to the middle of a long context). Memory must be <strong>managed</strong>, retrieve what is relevant, compact what is old, not dumped. Managed memory is cheaper and more accurate than a giant prompt.</div>
+      </div>
+    </section>
+
+    <!-- 14. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>An agent that remembers across sessions</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The class 5.2 agent, given both memories. Working memory bounds the context; long-term memory persists facts and is recalled by similarity each turn.</p>
+            <ul class="tight">
+              <li><code>Conversation</code>: a buffer window plus a running summary (compaction).</li>
+              <li><code>MemoryStore</code>: a vector store with dedupe and update on write.</li>
+              <li>A <code>save_memory</code> tool; relevant memory retrieved every turn.</li>
+              <li>Two sessions share one store: session 2 recalls session 1's preferences.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="95" y="14" width="110" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="150" y="31" text-anchor="middle" font-size="9" fill="#3730a3">user turn</text>
+              <line x1="150" y1="40" x2="150" y2="52" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#bd)"/>
+              <rect x="70" y="54" width="160" height="24" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="150" y="70" text-anchor="middle" font-size="8" fill="#854d0e">retrieve long-term memory</text>
+              <line x1="150" y1="78" x2="150" y2="90" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#bd)"/>
+              <rect x="70" y="92" width="160" height="24" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="150" y="108" text-anchor="middle" font-size="8" fill="#065f46">assemble + tool loop (5.2)</text>
+              <line x1="150" y1="116" x2="150" y2="128" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#bd)"/>
+              <rect x="70" y="130" width="160" height="24" rx="6" fill="#eff6ff" stroke="#2563eb"/><text x="150" y="146" text-anchor="middle" font-size="8" fill="#1e40af">record answer, then compact</text>
+              <defs><marker id="bd" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Distinguish working, episodic, and semantic memory, and pick a form for each.</li>
+              <li>Write a memory policy that updates a changed fact instead of duplicating it.</li>
+              <li>Reason about the per-turn token budget and where it grows.</li>
+              <li>Bound working memory with a window plus compaction.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Make the agent remember a user preference across separate sessions, then change the preference and confirm it is <em>updated</em>, not duplicated.</p>
+            <div class="callout"><span class="label">Next, class 5.4 (Frameworks and LangGraph)</span>Model the agent as an explicit state machine, with persistence that makes this memory framework-native.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
