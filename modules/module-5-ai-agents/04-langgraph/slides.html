@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 5.4 - Frameworks and LangGraph</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 5 &middot; Class 5.4</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 5 &middot; AI agents &middot; Class 5.4</span>
+      <h1>Frameworks and LangGraph</h1>
+      <p class="lead">You built an agent by hand three times, so you know what the loop does. Now model it as an explicit state machine, where the branches, retries, and memory stop being tangled and start being visible.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>When a framework earns its keep</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Why and when<span class="step-note">A framework, and the alternatives.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Agent as a state machine<span class="step-note">Nodes, edges, cycles.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">State and reducers<span class="step-note">How updates merge.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The checkpointer<span class="step-note">Memory, resume, human-in-the-loop.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Earned</span>You hand-rolled the loop in classes 5.1 to 5.3; now you can see exactly what a framework adds.</div>
+            <div class="pill"><span class="pill-tag">Forward</span>LangGraph is the backbone for the multi-agent teams in Module 6 (Agentic AI).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. When a framework earns its keep -->
+    <section>
+      <h2><span class="eyebrow">The decision</span>Hand-rolled loops get tangled</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A `for` loop with a step cap was perfect for learning. But as an agent grows, branches by query type, retries a failed tool, pauses for human approval, persists across turns, the plain loop fills with flags and nested `if`s that are hard to read and test.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">A framework gives structure</span>Named steps, explicit transitions, a state you can inspect, and persistence built in. Behavior becomes a diagram, not a tangle.</div>
+          <div class="callout"><span class="label">Not required from day one</span>You built a working agent without one. Reach for a framework when control flow gets complex, not before. Simplicity first.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. The landscape -->
+    <section>
+      <h2><span class="eyebrow">The options</span>The framework landscape</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2fr; font-size:0.88em">
+          <div class="gt-head">Option</div><div class="gt-head">What it is, and when to reach for it</div>
+          <div class="gt-accent">Plain code</div><div>a hand-rolled loop (classes 5.1 to 5.3). Still valid for simple agents.</div>
+          <div class="gt-accent">LangGraph</div><div>agent as a state graph; good for cyclic, controllable, persistent flows. We use it.</div>
+          <div class="gt-accent">LangChain AgentExecutor</div><div>an older prebuilt agent loop; quick to start, less control over the flow.</div>
+          <div class="gt-accent">LlamaIndex</div><div>retrieval-first; strong when the agent is mostly RAG over your data.</div>
+          <div class="gt-accent">CrewAI, AutoGen</div><div>opinionated multi-agent frameworks (Module 6 territory).</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Why LangGraph here</span>It makes the loop explicit and inspectable, and it carries straight into multi-agent orchestration in Module 6, where workers become nodes or subgraphs.</div>
+      </div>
+    </section>
+
+    <!-- 5. Agent as state machine -->
+    <section>
+      <h2><span class="eyebrow">The model</span>An agent is a state machine</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Model the agent as a graph over a shared <strong>state</strong>. Each <strong>node</strong> does one thing (call the model, run a tool); each <strong>edge</strong> decides where to go next; the state object carries data between them.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Visible and testable</span>The agent's behavior is the graph, not logic hidden inside a loop body. You can draw it, test one node in isolation, and reason about every transition.</div>
+          <div class="callout"><span class="label">The same agent</span>Nothing about what the agent does changes. Think, act, observe is still the shape; it is now expressed as nodes and edges instead of a while-loop.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Cycles not DAG -->
+    <section>
+      <h2><span class="eyebrow">Why a graph, not a pipeline</span>Cycles are the point</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A plain pipeline is a <strong>DAG</strong>: steps flow one way and stop. An agent needs to <strong>loop</strong>, act, observe, and decide to act again. LangGraph allows edges that go <em>back</em>, so the think-act-observe loop is a real cycle in the graph, with a conditional edge as the exit.</p>
+            <div class="callout"><span class="label">The difference</span>A chain runs start to finish once. An agent graph runs the model-tools cycle as many times as the task needs, then routes to the end.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 180" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="75" y="18" text-anchor="middle" font-size="9.5" font-weight="700" fill="#475569">DAG (chain)</text>
+              <rect x="45" y="28" width="60" height="20" rx="5" fill="#eef2ff" stroke="#6366f1"/><text x="75" y="42" text-anchor="middle" font-size="8" fill="#3730a3">A</text>
+              <line x1="75" y1="48" x2="75" y2="60" stroke="#6366f1" stroke-width="1.3" marker-end="url(#g)"/>
+              <rect x="45" y="62" width="60" height="20" rx="5" fill="#eef2ff" stroke="#6366f1"/><text x="75" y="76" text-anchor="middle" font-size="8" fill="#3730a3">B</text>
+              <line x1="75" y1="82" x2="75" y2="94" stroke="#6366f1" stroke-width="1.3" marker-end="url(#g)"/>
+              <rect x="45" y="96" width="60" height="20" rx="5" fill="#eef2ff" stroke="#6366f1"/><text x="75" y="110" text-anchor="middle" font-size="8" fill="#3730a3">C</text>
+              <text x="75" y="140" text-anchor="middle" font-size="8" fill="#64748b">one way, then stop</text>
+              <text x="225" y="18" text-anchor="middle" font-size="9.5" font-weight="700" fill="#065f46">agent graph</text>
+              <rect x="195" y="40" width="60" height="22" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="225" y="55" text-anchor="middle" font-size="8" fill="#3730a3">model</text>
+              <rect x="195" y="96" width="60" height="22" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="225" y="111" text-anchor="middle" font-size="8" fill="#065f46">tools</text>
+              <line x1="219" y1="62" x2="219" y2="96" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#g)"/>
+              <line x1="231" y1="96" x2="231" y2="62" stroke="#16a34a" stroke-width="1.3" marker-end="url(#g)"/>
+              <line x1="255" y1="51" x2="285" y2="51" stroke="#be123c" stroke-width="1.3" marker-end="url(#gr)"/><text x="278" y="45" text-anchor="middle" font-size="7.5" fill="#7f1d1d">end</text>
+              <text x="225" y="140" text-anchor="middle" font-size="8" fill="#64748b">loop until done</text>
+              <defs>
+                <marker id="g" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="gr" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#be123c"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. The state graph figure -->
+    <section>
+      <h2><span class="eyebrow">Our graph</span>Model, tools, and a conditional exit</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The whole agent, as a graph: enter at the <strong>model</strong> node; a conditional edge asks "did it request tools?". If yes, go to <strong>tools</strong> and back to the model; if no, go to <strong>END</strong>.</p>
+            <div class="callout"><span class="label">Read the flow</span>Every loop the hand-rolled version did is now one trip around this cycle. The step cap from class 5.1 becomes LangGraph's <code>recursion_limit</code>: pass it at invoke time and the graph stops with a clear error instead of cycling forever.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="110" y="14" width="80" height="22" rx="6" fill="#f1f5f9" stroke="#94a3b8"/><text x="150" y="29" text-anchor="middle" font-size="8.5" fill="#475569">START</text>
+              <line x1="150" y1="36" x2="150" y2="48" stroke="#3f4a63" stroke-width="1.4" marker-end="url(#s)"/>
+              <rect x="105" y="50" width="90" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="150" y="69" text-anchor="middle" font-size="10" font-weight="700" fill="#3730a3">model</text>
+              <path d="M150 80 L128 96 L150 112 L172 96 Z" fill="#fef9c3" stroke="#ca8a04"/><text x="150" y="99" text-anchor="middle" font-size="7">tools?</text>
+              <line x1="128" y1="96" x2="70" y2="96" stroke="#16a34a" stroke-width="1.3" marker-end="url(#s)"/><text x="98" y="90" text-anchor="middle" font-size="7.5" fill="#065f46">yes</text>
+              <rect x="14" y="84" width="56" height="24" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="42" y="100" text-anchor="middle" font-size="9" fill="#065f46">tools</text>
+              <path d="M42 84 Q42 40 104 60" fill="none" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#s)"/>
+              <line x1="150" y1="112" x2="150" y2="128" stroke="#be123c" stroke-width="1.3" marker-end="url(#sr)"/><text x="165" y="122" text-anchor="middle" font-size="7.5" fill="#7f1d1d">no</text>
+              <rect x="118" y="130" width="64" height="24" rx="6" fill="#fee2e2" stroke="#be123c"/><text x="150" y="146" text-anchor="middle" font-size="9" fill="#7f1d1d">END</text>
+              <defs>
+                <marker id="s" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="sr" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#be123c"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Typed state -->
+    <section>
+      <h2><span class="eyebrow">The data</span>A typed state every node shares</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The state is a typed schema that flows through the graph. Every node reads it and returns a <strong>partial update</strong>; LangGraph merges each update back in. For our agent the state is just the message list.</p>
+        <div style="background:#f8fafc; border:1px solid var(--c-line); border-left:4px solid #6366f1; border-radius:10px; padding:14px 20px; margin:6px 0 10px; font-family:var(--font-mono, monospace); font-size:0.82em; line-height:1.6; color:#1e293b; white-space:pre-wrap">class State(TypedDict):
+    messages: Annotated[list, operator.add]</div>
+        <div class="callout"><span class="label">Partial updates</span>A node does not return the whole state, only what it changed (for example, the new messages). That keeps nodes small and composable.</div>
+      </div>
+    </section>
+
+    <!-- 9. Reducers -->
+    <section>
+      <h2><span class="eyebrow">The gotcha</span>Reducers: append, do not overwrite</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What a reducer is</span>The annotation on a state field says HOW updates merge. Default is overwrite: a node's value replaces the old one. <code>operator.add</code> on a list means updates are <strong>appended</strong>.</div>
+          <div class="callout"><span class="label">The classic bug</span>Leave <code>messages</code> as a plain list (overwrite) and every node <em>replaces</em> the whole history with just its new message. The conversation vanishes each step. The append reducer is what keeps the transcript growing.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The rule</span>Anything that should accumulate (messages, retrieved docs, tool results) needs an append-style reducer. Anything that should be replaced (a status flag, the latest route) uses the default overwrite.</div>
+      </div>
+    </section>
+
+    <!-- 10. Nodes edges conditional -->
+    <section>
+      <h2><span class="eyebrow">The wiring</span>Nodes, edges, and conditional edges</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Three pieces build the graph. <strong>Nodes</strong> are functions of the state. <strong>Edges</strong> connect them unconditionally. <strong>Conditional edges</strong> call a router function that returns the name of the next node based on the state.</p>
+        <div style="background:#f8fafc; border:1px solid var(--c-line); border-left:4px solid #16a34a; border-radius:10px; padding:14px 20px; margin:6px 0 10px; font-family:var(--font-mono, monospace); font-size:0.78em; line-height:1.55; color:#1e293b; white-space:pre-wrap">g.add_node("model", model_node)
+g.add_node("tools", tool_node)
+g.add_edge(START, "model")
+g.add_conditional_edges("model", should_continue, {"tools": "tools", END: END})
+g.add_edge("tools", "model")     # the cycle</div>
+        <div class="callout"><span class="label">The router</span><code>should_continue</code> looks at the last message: if it holds tool calls, return "tools"; otherwise return END. That one function is the loop's exit condition.</div>
+      </div>
+    </section>
+
+    <!-- 11. Compile and run -->
+    <section>
+      <h2><span class="eyebrow">Run it</span>Compile, then invoke</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A graph is a blueprint until you <strong>compile</strong> it into a runnable app, then <code>invoke</code> it with an initial state. Compiling is also where you attach the checkpointer (next slide).</p>
+        <div style="background:#f8fafc; border:1px solid var(--c-line); border-left:4px solid #6366f1; border-radius:10px; padding:14px 20px; margin:6px 0 10px; font-family:var(--font-mono, monospace); font-size:0.8em; line-height:1.6; color:#1e293b; white-space:pre-wrap">app = g.compile(checkpointer=MemorySaver())
+out = app.invoke({"messages": [...]}, config={"configurable": {"thread_id": "t1"}})</div>
+        <div class="callout"><span class="label">Streaming too</span>Besides <code>invoke</code> (run to the end), a compiled graph can <code>stream</code> node-by-node, so you can watch the agent think and act step by step. Handy for a UI and for debugging.</div>
+      </div>
+    </section>
+
+    <!-- 12. Checkpointer -->
+    <section>
+      <h2><span class="eyebrow">The payoff feature</span>The checkpointer: three wins at once</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A <strong>checkpointer</strong> snapshots the state after every node, keyed by a <code>thread_id</code>. That one feature gives three things you built by hand before, for free:</p>
+            <ul class="tight">
+              <li><strong>Memory</strong>: a follow-up on the same thread resumes with prior turns.</li>
+              <li><strong>Resumability</strong>: a run that failed can restart from its last checkpoint.</li>
+              <li><strong>Human-in-the-loop</strong>: pause at a node, wait for input, resume (class 5.6).</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="150" y="16" text-anchor="middle" font-size="9" fill="#64748b">thread "t1"</text>
+              <rect x="20" y="30" width="70" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="55" y="46" text-anchor="middle" font-size="8" fill="#3730a3">turn 1 state</text>
+              <line x1="90" y1="43" x2="118" y2="43" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#k)"/>
+              <rect x="120" y="30" width="70" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="155" y="46" text-anchor="middle" font-size="8" fill="#3730a3">turn 2 state</text>
+              <line x1="190" y1="43" x2="218" y2="43" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#k)"/>
+              <rect x="220" y="30" width="70" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="255" y="46" text-anchor="middle" font-size="8" fill="#3730a3">turn 3 state</text>
+              <rect x="20" y="86" width="270" height="30" rx="7" fill="#dcfce7" stroke="#16a34a"/><text x="155" y="105" text-anchor="middle" font-size="9" fill="#065f46">checkpointer saves each snapshot, keyed by thread_id</text>
+              <text x="150" y="140" text-anchor="middle" font-size="8.5" fill="#64748b">resume the thread and the state is already there</text>
+              <defs><marker id="k" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12b. Checkpointer vs the 5.3 memory + durability -->
+    <section>
+      <h2><span class="eyebrow">Two questions you are now asking</span>Did the checkpointer replace my memory code?</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Two fair questions after the last slide, answered before they trip you up.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Checkpointer vs the class 5.3 store</span>They are complementary, not redundant. The checkpointer persists <strong>this thread's state</strong> (the working memory of one conversation). The class 5.3 <code>MemoryStore</code> holds <strong>long-term facts across threads and users</strong>, retrieved by similarity. A real agent uses both: the checkpointer for "where were we", the store for "what do I know about this user".</div>
+          <div class="callout"><span class="label">Ephemeral vs durable</span><code>MemorySaver</code> keeps snapshots in <strong>RAM</strong>, so they vanish when the process restarts, fine for a demo, not for production. For real deployments use a <strong>durable</strong> checkpointer (<code>SqliteSaver</code> for a local file, a Postgres saver for a server) so threads survive a restart. Same graph, one line changed.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">The rule of thumb</span>Checkpointer = conversation continuity and resumability. Long-term store = durable knowledge. Pick a durable checkpointer the moment the agent leaves your laptop.</div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Refactor the agent onto LangGraph</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Take the class 5.2 agent and rebuild it as a graph: a typed state with an append-messages reducer, a model node and a tool node, one conditional edge that loops until a final answer, and a <code>MemorySaver</code> checkpointer.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What you write</span>Two node functions, one router, five lines of wiring, and <code>compile(checkpointer=...)</code>. The tools and <code>llm.chat_tools</code> are unchanged from class 5.2.</div>
+          <div class="callout"><span class="label">What you get</span>The same agent, now inspectable, with persistence: the build runs a query, then a follow-up on the same thread that remembers the first without resending history.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Say when a framework earns its keep, and name the alternatives.</li>
+              <li>Model an agent as a state graph with nodes, edges, and a cycle.</li>
+              <li>Use a typed state and the right reducer (append vs overwrite).</li>
+              <li>Add a checkpointer for memory, resume, and human-in-the-loop.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Add a conditional edge that routes by query type (factual versus action), and show the graph resuming from a checkpoint after an interruption.</p>
+            <div class="callout"><span class="label">Next, class 5.5 (MCP)</span>Expose your tools over the Model Context Protocol, and connect the LangGraph agent to them as a client.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
