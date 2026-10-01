@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 5.5 - MCP</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 5 &middot; Class 5.5</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 5 &middot; AI agents &middot; Class 5.5</span>
+      <h1>MCP: the Model Context Protocol</h1>
+      <p class="lead">Wire a tool once, and any agent can use it. MCP is the USB-C of agent tools: a common protocol so you stop writing a bespoke integration for every app. Today you build both sides.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>Stop rewriting integrations</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Why MCP exists<span class="step-note">The integration explosion.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The primitives<span class="step-note">Tools, resources, prompts.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">The handshake<span class="step-note">Initialize, discover, call.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Build both sides<span class="step-note">A server and a client.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Why this matters</div>
+            <div class="pill"><span class="pill-tag">Free and local</span>No paid app required. Your own agent is the client; you build the server.</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Tools from class 5.2 and the LangGraph agent from class 5.4.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. The N x M problem -->
+    <section>
+      <h2><span class="eyebrow">The problem</span>Every tool, in every app, by hand</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Without a standard, each app integrates each tool its own way. With <strong>N</strong> apps and <strong>M</strong> tools, that is <strong>N times M</strong> bespoke integrations, and every new tool must be rebuilt for every app.</p>
+            <div class="callout"><span class="label">The fix</span>A common protocol turns N times M into <strong>N plus M</strong>: each app speaks MCP once, each tool speaks MCP once, and they all interoperate.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 340 150" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <!-- WITHOUT MCP: full mesh, 3 apps x 3 tools = 9 -->
+              <text x="82" y="14" text-anchor="middle" font-size="9" font-weight="700" fill="#7f1d1d">without MCP</text>
+              <g stroke="#cbd5e1" stroke-width="0.8">
+                <line x1="62" y1="35" x2="110" y2="35"/><line x1="62" y1="35" x2="110" y2="63"/><line x1="62" y1="35" x2="110" y2="91"/>
+                <line x1="62" y1="63" x2="110" y2="35"/><line x1="62" y1="63" x2="110" y2="63"/><line x1="62" y1="63" x2="110" y2="91"/>
+                <line x1="62" y1="91" x2="110" y2="35"/><line x1="62" y1="91" x2="110" y2="63"/><line x1="62" y1="91" x2="110" y2="91"/>
+              </g>
+              <rect x="18" y="27" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/><rect x="18" y="55" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/><rect x="18" y="83" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/>
+              <rect x="110" y="27" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/><rect x="110" y="55" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/><rect x="110" y="83" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="40" y="112" text-anchor="middle" font-size="6.5" fill="#6366f1">apps</text>
+              <text x="132" y="112" text-anchor="middle" font-size="6.5" fill="#16a34a">tools</text>
+              <text x="86" y="128" text-anchor="middle" font-size="8.5" font-weight="700" fill="#7f1d1d">3 &#215; 3 = 9 integrations</text>
+
+              <!-- WITH MCP: each side speaks the protocol once, 3 + 3 = 6 -->
+              <text x="258" y="14" text-anchor="middle" font-size="9" font-weight="700" fill="#065f46">with MCP</text>
+              <g stroke="#94a3b8" stroke-width="0.9">
+                <line x1="222" y1="35" x2="242" y2="45"/><line x1="222" y1="63" x2="242" y2="63"/><line x1="222" y1="91" x2="242" y2="81"/>
+                <line x1="270" y1="45" x2="290" y2="35"/><line x1="270" y1="63" x2="290" y2="63"/><line x1="270" y1="81" x2="290" y2="91"/>
+              </g>
+              <rect x="178" y="27" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/><rect x="178" y="55" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/><rect x="178" y="83" width="44" height="16" rx="4" fill="#eef2ff" stroke="#6366f1"/>
+              <rect x="242" y="33" width="28" height="60" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="256" y="60" text-anchor="middle" font-size="8" font-weight="700" fill="#854d0e">MCP</text><text x="256" y="71" text-anchor="middle" font-size="5.5" fill="#a16207">standard</text>
+              <rect x="290" y="27" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/><rect x="290" y="55" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/><rect x="290" y="83" width="44" height="16" rx="4" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="200" y="112" text-anchor="middle" font-size="6.5" fill="#6366f1">apps (clients)</text>
+              <text x="312" y="112" text-anchor="middle" font-size="6.5" fill="#16a34a">tools (servers)</text>
+              <text x="256" y="128" text-anchor="middle" font-size="8.5" font-weight="700" fill="#065f46">3 + 3 = 6 integrations</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Universal plug -->
+    <section>
+      <h2><span class="eyebrow">The idea</span>MCP is one protocol both sides speak</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">MCP is a <strong>universal plug standard</strong> for agent tools. A <strong>server</strong> exposes capabilities; a <strong>client</strong> consumes them. Any MCP client can use any MCP server, the way any USB-C charger fits any USB-C device.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Wire once</span>Wrap a database query, an internal API, or the Module 4 retriever as an MCP server once. Every MCP client, now and later, can use it.</div>
+          <div class="callout"><span class="label">A growing ecosystem</span>Many tools already ship MCP servers (files, GitHub, databases, search). Speaking MCP means your agent can use them without custom glue.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. MCP vs API -->
+    <section>
+      <h2><span class="eyebrow">A common confusion</span>MCP is not a replacement for an API</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">An <strong>API</strong> is one service's own interface: you read its docs and write custom code to call it. <strong>MCP</strong> is a standard protocol that lets any agent <strong>discover and call</strong> tools the same way, whatever service sits underneath.</p>
+        <div class="grid-table" style="grid-template-columns: 0.8fr 1.55fr 1.55fr; font-size:0.82em">
+          <div class="gt-head"></div><div class="gt-head">A traditional API</div><div class="gt-head">MCP</div>
+          <div class="gt-accent">What it is</div><div>one service's specific interface</div><div>a standard protocol for exposing tools and data</div>
+          <div class="gt-accent">Who calls it</div><div>a developer writing bespoke code per API</div><div>any MCP client (your agent), no bespoke glue</div>
+          <div class="gt-accent">Discovery</div><div>read the docs, hard-code the calls</div><div>ask at runtime with list_tools</div>
+          <div class="gt-accent">Shape</div><div>varies: REST, GraphQL, gRPC, SDKs</div><div>uniform: JSON-RPC plus tool schemas</div>
+          <div class="gt-accent">Built for</div><div>programs in general</div><div>LLM agents specifically</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:8px">
+          <div class="callout"><span class="label">Layers, not rivals</span>An MCP server usually <strong>wraps</strong> an API. MCP standardizes how the agent finds and calls a capability; the API still does the actual work underneath. You do not throw away your REST API, you put an MCP server in front of it (which is exactly what our server does with the Module 4 retriever).</div>
+          <div class="callout"><span class="label">The analogy</span>An API is the appliance; MCP is the standard wall socket. Each appliance still does its own job. The socket just means one plug fits them all, so the agent does not need a different adapter for every tool.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Not a paid app -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"You need Claude or Cursor to use MCP"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">MCP is an <strong>open protocol</strong>, not a feature of one product. Those apps are simply MCP <em>clients</em> you could point at your server. So is your own agent.</p>
+        <div class="callout"><span class="label">Your agent is the client</span>The LangGraph agent from class 5.4 becomes an MCP client: it launches your server, discovers its tools, and calls them. No paid app, no cloud account, all local and free. Those apps are optional extra clients, not a requirement.</div>
+      </div>
+    </section>
+
+    <!-- 6. The three primitives -->
+    <section>
+      <h2><span class="eyebrow">What a server offers</span>Three primitives, not just tools</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2fr; font-size:0.9em">
+          <div class="gt-head">Primitive</div><div class="gt-head">What it is</div>
+          <div class="gt-accent">Tools</div><div>functions the model can call (search, query, act). Our focus, and what we build.</div>
+          <div class="gt-accent">Resources</div><div>read-only data the client can load into context (files, records, a config).</div>
+          <div class="gt-accent">Prompts</div><div>reusable prompt templates the server offers to the client.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Know all three</span>We build tools today, but MCP is broader than tools. Naming resources and prompts now means you recognize them when a server exposes them.</div>
+      </div>
+    </section>
+
+    <!-- 7. The handshake -->
+    <section>
+      <h2><span class="eyebrow">Under the hood</span>The handshake: initialize, discover, call</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">MCP is <strong>JSON-RPC</strong> over a transport. The client and server exchange three kinds of message, and "discovery" stops being hand-wavy:</p>
+            <ul class="tight">
+              <li><strong>initialize</strong>: client and server exchange capabilities.</li>
+              <li><strong>list_tools</strong>: the client asks what the server offers (discovery).</li>
+              <li><strong>call_tool</strong>: the client invokes one by name with arguments.</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 190" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="20" y="16" width="80" height="22" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="60" y="31" text-anchor="middle" font-size="8.5" fill="#3730a3">client (agent)</text>
+              <rect x="200" y="16" width="80" height="22" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="240" y="31" text-anchor="middle" font-size="8.5" fill="#065f46">server</text>
+              <line x1="60" y1="38" x2="60" y2="180" stroke="#cbd5e1" stroke-width="1"/><line x1="240" y1="38" x2="240" y2="180" stroke="#cbd5e1" stroke-width="1"/>
+              <line x1="60" y1="56" x2="238" y2="56" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#h)"/><text x="150" y="51" text-anchor="middle" font-size="8" fill="#3f4a63">initialize</text>
+              <line x1="240" y1="76" x2="62" y2="76" stroke="#16a34a" stroke-width="1.3" marker-end="url(#hg)"/><text x="150" y="71" text-anchor="middle" font-size="8" fill="#065f46">capabilities</text>
+              <line x1="60" y1="100" x2="238" y2="100" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#h)"/><text x="150" y="95" text-anchor="middle" font-size="8" fill="#3f4a63">list_tools</text>
+              <line x1="240" y1="120" x2="62" y2="120" stroke="#16a34a" stroke-width="1.3" marker-end="url(#hg)"/><text x="150" y="115" text-anchor="middle" font-size="8" fill="#065f46">tool schemas</text>
+              <line x1="60" y1="144" x2="238" y2="144" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#h)"/><text x="150" y="139" text-anchor="middle" font-size="8" fill="#3f4a63">call_tool(name, args)</text>
+              <line x1="240" y1="164" x2="62" y2="164" stroke="#16a34a" stroke-width="1.3" marker-end="url(#hg)"/><text x="150" y="159" text-anchor="middle" font-size="8" fill="#065f46">result</text>
+              <defs>
+                <marker id="h" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="hg" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#16a34a"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Servers vs clients -->
+    <section>
+      <h2><span class="eyebrow">Two roles</span>Servers expose, clients consume, you build both</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The server</span>Wraps your functions as tools and answers the protocol. It does not know or care who the client is. Build it once; reuse it everywhere.</div>
+          <div class="callout"><span class="label">The client</span>Discovers and calls the server's tools. Your agent is a client; so are Claude Desktop, Cursor, and others. One server, many possible clients.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Today you build both</span>A Python MCP server that wraps the retriever and a glossary, and a client (your agent) that discovers and calls them. Seeing both sides makes the protocol concrete.</div>
+      </div>
+    </section>
+
+    <!-- 9. Wrapping functions -->
+    <section>
+      <h2><span class="eyebrow">The server, in code</span>Your function becomes a tool</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">With the <code>mcp</code> SDK's <code>FastMCP</code>, a decorator turns a plain function into an MCP tool. Its name, docstring, and typed signature become the schema the client discovers, no separate schema to write.</p>
+        <div style="background:#f8fafc; border:1px solid var(--c-line); border-left:4px solid #16a34a; border-radius:10px; padding:14px 20px; margin:6px 0 10px; font-family:var(--font-mono, monospace); font-size:0.8em; line-height:1.6; color:#1e293b; white-space:pre-wrap">from mcp.server.fastmcp import FastMCP
+mcp = FastMCP("tax-tools")
+
+@mcp.tool()
+def tax_glossary(term: str) -> str:
+    """Define a tax term in plain language."""
+    return LOOKUP.get(term.lower(), "no entry")
+
+mcp.run()   # serve over stdio</div>
+        <div class="callout"><span class="label">The description carries over</span>The docstring becomes the tool description, so the same rule from class 5.2 applies: write it for the model, it drives tool choice.</div>
+      </div>
+    </section>
+
+    <!-- 10. Transports -->
+    <section>
+      <h2><span class="eyebrow">How they connect</span>Transports: stdio and HTTP</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">stdio (what we use)</span>The server runs as a local subprocess; the client talks to it over standard in and out. Free, local, no ports, perfect for tools that live beside your agent.</div>
+          <div class="callout"><span class="label">HTTP and SSE</span>The server is a networked service the client reaches over HTTP (streamable HTTP or server-sent events). This is how remote or shared servers work, and where auth becomes necessary.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Same protocol either way</span>The messages (initialize, list_tools, call_tool) are identical; only the pipe changes. We build on stdio; the HTTP path is the same code with a different transport.</div>
+      </div>
+    </section>
+
+    <!-- 11. Security -->
+    <section>
+      <h2><span class="eyebrow">A real risk</span>An unknown server is untrusted</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">MCP tools run real code and their results re-enter the model's context. That makes MCP a security surface, not just a convenience.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The server you connect to</span>A server you did not write is untrusted code running on your machine. Vet it, sandbox it, and give it least privilege, as you would any dependency.</div>
+          <div class="callout"><span class="label">The output it returns</span>A tool result is untrusted text and can carry injected instructions (class 5.6, Reliability and failure modes). Treat every result as data, never as a command.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Scope -->
+    <section>
+      <h2><span class="eyebrow">Honest scope</span>What we build, and what we name</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">We build</span>A custom MCP server exposing <strong>tools</strong> over <strong>stdio</strong>, and an agent client that discovers and calls them. Enough to ship a real internal tool.</div>
+          <div class="callout"><span class="label">We name, not build</span>Resources and prompts (the other primitives), HTTP and SSE transports, and authentication. You will recognize them and know where to look when you need them.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Transferable</span>The custom-server skill applies to any internal API or data source: wrap it once as an MCP server and every agent you build can use it.</div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>A server and an agent client</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Wrap two functions as an MCP server, then connect the agent as a client that discovers and calls them through the protocol.</p>
+            <ul class="tight">
+              <li><code>server.py</code>: <code>search_tax_docs</code> (the retriever) and <code>tax_glossary</code>, over stdio.</li>
+              <li><code>client.py</code>: initialize, list_tools, then run the agent loop, calling tools via <code>call_tool</code>.</li>
+              <li>Discovered tools map to the class 5.2 <code>chat_tools</code> specs, so the loop is unchanged.</li>
+            </ul>
+            <div class="callout"><span class="label">See it</span>The client prints the discovered tool names, so you watch discovery happen before the agent uses them.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 170" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="24" y="60" width="96" height="40" rx="8" fill="#eef2ff" stroke="#6366f1"/><text x="72" y="78" text-anchor="middle" font-size="9" font-weight="700" fill="#3730a3">agent</text><text x="72" y="92" text-anchor="middle" font-size="7.5" fill="#3730a3">(MCP client)</text>
+              <rect x="180" y="60" width="96" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="228" y="78" text-anchor="middle" font-size="9" font-weight="700" fill="#065f46">server.py</text><text x="228" y="92" text-anchor="middle" font-size="7.5" fill="#065f46">2 tools, stdio</text>
+              <line x1="120" y1="72" x2="178" y2="72" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#bd)"/><text x="149" y="66" text-anchor="middle" font-size="7" fill="#3f4a63">list / call</text>
+              <line x1="178" y1="88" x2="122" y2="88" stroke="#16a34a" stroke-width="1.3" marker-end="url(#bdg)"/><text x="149" y="100" text-anchor="middle" font-size="7" fill="#065f46">schemas / results</text>
+              <text x="150" y="130" text-anchor="middle" font-size="8" fill="#64748b">swap the server, the agent is unchanged</text>
+              <defs>
+                <marker id="bd" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+                <marker id="bdg" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#16a34a"/></marker>
+              </defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Explain why MCP exists (N plus M, not N times M) and that it is an open protocol.</li>
+              <li>Name the three primitives: tools, resources, prompts.</li>
+              <li>Trace the handshake: initialize, list_tools, call_tool.</li>
+              <li>Build a custom MCP server and connect an agent to it as a client.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment</div>
+            <p class="stmt" style="margin-top:6px">Expose a new capability through your server and have the agent discover and use it with no change to the agent's own code, the point of the protocol.</p>
+            <div class="callout"><span class="label">Next, class 5.6 (Reliability and failure modes)</span>How agents break in production, and the rails that keep them safe and bounded.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
