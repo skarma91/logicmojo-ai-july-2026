@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+embeddings.npy
+ids.json
+requests.log
+data/long_term_memory.jsonl

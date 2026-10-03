@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 5.7 - Milestone: the single-agent product</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 5 &middot; Class 5.7</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 5 &middot; AI agents &middot; Class 5.7 &middot; Milestone</span>
+      <h1>Assemble the whole single agent</h1>
+      <p class="lead">Everything from this module becomes one agent: retrieval, tools, memory, an MCP capability, and the rails, on a LangGraph backbone. Then we face the bill: agents multiply LLM calls, so we quantify cost and latency and make them explicit.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>Assemble, then account</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Cost and latency, quantified<span class="step-note">Agents multiply calls.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The two levers<span class="step-note">Caching and routing.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Integration patterns<span class="step-note">How the pieces fit.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Productionize + build<span class="step-note">The assembled agent.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">The capstone</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Every class in Module 5: 5.1 loop, 5.2 tools, 5.3 memory, 5.4 LangGraph, 5.5 MCP, 5.6 rails.</div>
+            <div class="pill"><span class="pill-tag">Becomes</span>One worker node in the multi-agent team of Module 6.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Agents multiply calls -->
+    <section>
+      <h2><span class="eyebrow">The reality</span>An agent is not one LLM call</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A chatbot answer is one model call. An agent that thinks, calls a tool, reads the result, thinks again, and answers is <strong>many</strong> calls for a single task, and each call carries a bigger context than the last.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">One task, many calls</span>A five-step task is at least five model calls, plus the tool executions between them. Ten steps is not unusual for real work.</div>
+          <div class="callout"><span class="label">The context snowballs</span>Each step re-sends the system prompt, the tool schemas, the memory, and the whole running transcript. The per-call input keeps growing.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Cost formula -->
+    <section>
+      <h2><span class="eyebrow">Quantify it</span>The cost of a run</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Total cost is the sum, over every step, of what that step's input and output tokens cost:</p>
+        <p style="text-align:center">$$C \;=\; \sum_{i=1}^{n}\bigl(t^{\text{in}}_{i}\,p_{\text{in}} \;+\; t^{\text{out}}_{i}\,p_{\text{out}}\bigr)$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(n\) is the number of model calls (steps). \(t^{\text{in}}_{i}\) and \(t^{\text{out}}_{i}\) are the input and output tokens on step \(i\). \(p_{\text{in}}\) and \(p_{\text{out}}\) are the price per token in and out.</div>
+          <div class="callout"><span class="label">The trap in the sum</span>\(t^{\text{in}}_{i}\) is not constant: it grows each step as memory and the transcript accumulate (class 5.3). So a ten-step task costs more than ten times step one. Dollar figures here are illustrative.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Context grows -->
+    <section>
+      <h2><span class="eyebrow">Why the sum balloons</span>The context grows each step</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Every step re-sends everything the model needs to see. That pile only gets bigger as the run goes on, which is why late steps cost the most.</p>
+            <div class="callout"><span class="label">The levers</span>A tight tool registry (class 5.2), summary compaction, and retrieving only the memories you need (class 5.3) keep \(t^{\text{in}}_{i}\) from exploding.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="22" y="16" font-size="9" fill="#475569">tokens sent per step</text>
+              <line x1="30" y1="180" x2="285" y2="180" stroke="#94a3b8" stroke-width="1"/>
+              <line x1="30" y1="20" x2="30" y2="180" stroke="#94a3b8" stroke-width="1"/>
+              <rect x="45"  y="150" width="30" height="30"  rx="3" fill="#99f6e4"/>
+              <rect x="90"  y="126" width="30" height="54"  rx="3" fill="#5eead4"/>
+              <rect x="135" y="100" width="30" height="80"  rx="3" fill="#2dd4bf"/>
+              <rect x="180" y="70"  width="30" height="110" rx="3" fill="#14b8a6"/>
+              <rect x="225" y="40"  width="30" height="140" rx="3" fill="#0d9488"/>
+              <text x="60"  y="192" text-anchor="middle" font-size="8" fill="#475569">1</text>
+              <text x="105" y="192" text-anchor="middle" font-size="8" fill="#475569">2</text>
+              <text x="150" y="192" text-anchor="middle" font-size="8" fill="#475569">3</text>
+              <text x="195" y="192" text-anchor="middle" font-size="8" fill="#475569">4</text>
+              <text x="240" y="192" text-anchor="middle" font-size="8" fill="#475569">step</text>
+              <text x="150" y="34" text-anchor="middle" font-size="8.5" fill="#475569">system + schemas + memory + transcript</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Latency -->
+    <section>
+      <h2><span class="eyebrow">Why agents feel slow</span>Latency adds up too</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Steps are sequential: each waits on the previous one's output before it can start. So total latency is about the sum of the per-step latencies.</p>
+        <p style="text-align:center">$$L \;\approx\; \sum_{i=1}^{n}\ell_{i}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Symbols</span>\(L\) is total wall-clock time, \(\ell_{i}\) is the latency of step \(i\) (the model call plus its tool). \(n\) sequential steps means \(n\) waits in a row.</div>
+          <div class="callout"><span class="label">The levers</span>Stream the final answer so it feels fast; run independent tool calls in parallel (class 5.2) to collapse several \(\ell_{i}\) into one; and route easy steps to a faster model.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Caching -->
+    <section>
+      <h2><span class="eyebrow">Lever one</span>Caching: three kinds, name them</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.6fr 1.2fr; font-size:0.84em">
+          <div class="gt-head">Kind</div><div class="gt-head">What it reuses</div><div class="gt-head">When it hits</div>
+          <div class="gt-accent">Prompt caching</div><div>a cached input-token prefix (system prompt, schemas), from class 4.7</div><div>same prefix, repeated calls</div>
+          <div class="gt-accent">Result memoization</div><div>a tool's output for identical arguments</div><div>same tool call again</div>
+          <div class="gt-accent">Semantic caching</div><div>a stored answer for a near-identical query (by embedding similarity)</div><div>a paraphrased repeat</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">They stack</span>Prompt caching cuts the cost of the growing prefix; result and semantic caching cut whole calls. Use all three where they apply.</div>
+      </div>
+    </section>
+
+    <!-- 8. Routing -->
+    <section>
+      <h2><span class="eyebrow">Lever two</span>Model routing, with a rubric</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Not every step needs your biggest model. Send easy steps to a small or local model, hard steps to a capable one. The saving compounds over a multi-step run.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">By step type</span>A routing decision or a quick extraction goes to a small, cheap model; the final synthesis goes to a strong one.</div>
+          <div class="callout"><span class="label">By capability</span>Route to the smallest model that reliably passes your eval (class 4.8) for that step, not the biggest one available.</div>
+          <div class="callout"><span class="label">By context size</span>A step with a large context needs a long-context model; a short step does not pay for one.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"An agent costs the same as one call"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">It does not. A single task can be ten or more model calls, each with a context that grew from the last. Budget for the run, not for one call.</p>
+        <div class="callout"><span class="label">The habit</span>Print the run's cost and step count every time (the build does this). Once you can see it, caching, routing, a tight registry, and compaction stop being abstract and become the knobs you turn.</div>
+      </div>
+    </section>
+
+    <!-- 10. Assembled architecture -->
+    <section>
+      <h2><span class="eyebrow">Integration</span>The assembled architecture</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 340 210" xmlns="http://www.w3.org/2000/svg" style="width:78%" font-family="Segoe UI, Arial, sans-serif">
+            <!-- checkpointer band -->
+            <rect x="8" y="8" width="324" height="194" rx="12" fill="#f0fdfa" stroke="#99f6e4"/>
+            <text x="170" y="22" text-anchor="middle" font-size="8.5" fill="#0f766e">LangGraph + checkpointer (working memory, resume, approval)</text>
+            <!-- model node -->
+            <rect x="130" y="40" width="80" height="30" rx="7" fill="#ccfbf1" stroke="#0d9488"/><text x="170" y="59" text-anchor="middle" font-size="10" fill="#134e4a">model node</text>
+            <!-- route down -->
+            <line x1="170" y1="70" x2="170" y2="92" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a)"/>
+            <text x="196" y="86" font-size="7.5" fill="#64748b">route</text>
+            <!-- tools row -->
+            <rect x="16"  y="94" width="70" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="51" y="107" text-anchor="middle" font-size="8" fill="#3730a3">search_tax_docs</text><text x="51" y="118" text-anchor="middle" font-size="7" fill="#6366f1">(retriever)</text>
+            <rect x="94"  y="94" width="70" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="129" y="107" text-anchor="middle" font-size="8" fill="#3730a3">tax_glossary</text><text x="129" y="118" text-anchor="middle" font-size="7" fill="#6366f1">(MCP)</text>
+            <rect x="172" y="94" width="70" height="30" rx="7" fill="#fef9c3" stroke="#ca8a04"/><text x="207" y="107" text-anchor="middle" font-size="8" fill="#854d0e">file_request</text><text x="207" y="118" text-anchor="middle" font-size="7" fill="#a16207">(risky)</text>
+            <rect x="250" y="94" width="74" height="30" rx="7" fill="#dcfce7" stroke="#16a34a"/><text x="287" y="107" text-anchor="middle" font-size="8" fill="#065f46">long-term</text><text x="287" y="118" text-anchor="middle" font-size="7" fill="#16a34a">memory (vec)</text>
+            <!-- guardrail band -->
+            <rect x="16" y="140" width="308" height="26" rx="7" fill="#fee2e2" stroke="#be123c"/>
+            <text x="170" y="157" text-anchor="middle" font-size="8.5" fill="#7f1d1d">guardrails: step cap &middot; budget &middot; validate &middot; scan output &middot; approve risky</text>
+            <text x="170" y="184" text-anchor="middle" font-size="8" fill="#64748b">every tool result scanned as untrusted data, then back to the model</text>
+            <defs><marker id="a" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Integration patterns -->
+    <section>
+      <h2><span class="eyebrow">How the pieces fit</span>Integration patterns</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Retrieval and MCP are just tools</span>The model sees one uniform tool registry. Whether a tool is a local function (the retriever) or reached over MCP (the glossary) is invisible to the loop, so you add capabilities without touching it.</div>
+          <div class="callout"><span class="label">Memory wraps the run</span>Read relevant long-term memories into the system prompt at the start; write durable facts back at the end (deduped by key, class 5.3). Working memory lives in the checkpointed state.</div>
+          <div class="callout"><span class="label">Guardrails wrap the loop</span>Validation and the injection scan sit on every tool call; the caps sit on the edges; approval sits before the risky node. The rails are cross-cutting, not one step.</div>
+          <div class="callout"><span class="label">The checkpointer is the spine</span>It persists the thread (resume later), and it is what makes the human-in-the-loop pause and approve possible (class 5.4 and 5.6).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Productionized -->
+    <section>
+      <h2><span class="eyebrow">What "done" looks like</span>A productionized single agent</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.7fr; font-size:0.86em">
+          <div class="gt-head">Property</div><div class="gt-head">How this agent meets it</div>
+          <div class="gt-accent">Bounded</div><div>step cap and tool-call budget; it cannot run away (class 5.6).</div>
+          <div class="gt-accent">Guarded</div><div>validation, injection scan, and approval before side effects.</div>
+          <div class="gt-accent">Observed</div><div>full trajectory logged; add tracing (LangSmith, OpenTelemetry) in production.</div>
+          <div class="gt-accent">Evaluated</div><div>run a fixed task set on trajectory and outcome (class 4.8, 5.6).</div>
+          <div class="gt-accent">Accounted</div><div>reports its own cost and step count for every run.</div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Next stop</span>Deployment (packaging, serving, monitoring this agent) is Module 6 (class 6.8).</div>
+      </div>
+    </section>
+
+    <!-- 13. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>One agent, end to end, with its bill</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Assemble retrieval, a second tool, an MCP capability, memory, and the rails on LangGraph with a checkpointer. Run a real task; it pauses for approval before the risky action, then prints its cost-and-step summary.</p>
+        <div class="callout"><span class="label">The output that matters</span>Not just the answer, but the two lines after it:</div>
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:14px 20px; margin:8px 0; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.86em; line-height:1.85; color:#1e293b">
+          <div style="font-size:0.66em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:8px">console output</div>
+          <div><span style="color:#64748b">trajectory</span>&nbsp;&nbsp;model &rarr; tools &rarr; model &rarr; <strong style="color:#b45309">risky (approved)</strong> &rarr; model</div>
+          <div style="margin-top:6px"><span style="color:#64748b">cost summary</span>&nbsp;&nbsp;steps=3 &middot; tool&#95;calls=2 &middot; in&#95;tokens~170 &middot; out&#95;tokens~47 &middot; <strong style="color:#0f766e">est&#95;cost ~$0.00005</strong> <span style="color:#94a3b8">(illustrative)</span></div>
+        </div>
+        <div class="callout"><span class="label">Read it as a checklist</span>The trajectory shows the rails firing (a risky action was approved, not silently run); the summary shows the run's cost, so cutting it is now a measurable goal.</div>
+      </div>
+    </section>
+
+    <!-- 14. Module 5 milestone brief -->
+    <section>
+      <h2><span class="eyebrow">Module 5 milestone</span>Your single-agent product</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Build one agent that wraps:</p>
+        <div class="cols cols-2">
+          <div>
+            <ul class="tight">
+              <li>the Module 4 retriever, <strong>plus at least two more tools</strong>;</li>
+              <li><strong>working and long-term memory</strong> (checkpointer + vector store);</li>
+              <li>one <strong>MCP-exposed capability</strong>;</li>
+              <li>guardrails: a step cap, a token or tool-call budget, and an approval checkpoint.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="callout"><span class="label">Built on</span>LangGraph with a checkpointer, demonstrated on a real task.</div>
+            <div class="callout"><span class="label">It must report</span>its own cost and step count for the run.</div>
+            <div class="callout"><span class="label">Why it matters</span>This worker becomes one node of the team in Module 6.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Module 5 done</span>What you can build now</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Across the module you built</div>
+            <ul class="tight">
+              <li>an agent loop, then native tool calling and ReAct;</li>
+              <li>working and long-term memory with a real write policy;</li>
+              <li>the same agent on LangGraph with a checkpointer;</li>
+              <li>a custom MCP server and client;</li>
+              <li>the reliability rails; and now, one assembled, cost-aware agent.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Next: Module 6 (Multi-agent systems)</div>
+            <p class="stmt" style="margin-top:6px">One capable agent is the unit. Module 6 makes several of them work as a team: orchestration, shared context, communication, and deploying the result.</p>
+            <div class="callout"><span class="label">Milestone</span>Ship your single-agent product, then bring it to Module 6 as a worker.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
