@@ -57,7 +57,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [5.3 Memory for agents](modules/module-5-ai-agents/03-memory-for-agents/)
 - [5.4 LangGraph](modules/module-5-ai-agents/04-langgraph/)
 - [5.5 MCP](modules/module-5-ai-agents/05-mcp/)
-- 5.6 Reliability and failure modes (upcoming)
+- [5.6 Reliability and failure modes](modules/module-5-ai-agents/06-reliability-and-failure-modes/)
 - 5.7 Assemble a single agent (upcoming)
 - Module 5 milestone assignment (upcoming)
 - Suggested reading (upcoming)
