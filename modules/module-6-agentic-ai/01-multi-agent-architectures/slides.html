@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.1 - Multi-agent architectures</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.1</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.1</span>
+      <h1>One worker becomes a team, and when not to</h1>
+      <p class="lead">The single agent you assembled in class 5.7 (Assemble a single agent) becomes one worker in a team. We cover when a team beats one agent, the three shapes teams take, and the cost of every agent you add, measured rather than assumed.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>From one agent to a team</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">When a team helps<span class="step-note">And when one agent is better.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Three team shapes<span class="step-note">Supervisor, hierarchical, pipeline.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">The price of a team<span class="step-note">Cost and failure, quantified.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The build<span class="step-note">A supervisor and two workers.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>The class 5.7 (Assemble a single agent) agent (retrieval, MCP, guardrails) and LangGraph from class 5.4 (LangGraph).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>Orchestration mechanics in class 6.2 (Orchestration) and context engineering in class 6.3 (Context engineering).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. When a team helps -->
+    <section>
+      <h2><span class="eyebrow">The case for a team</span>When splitting the work pays off</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Distinct roles</span>The task has real stages with different jobs: research the facts, write for a reader, check the result. Each agent gets a focused prompt and only the tools for its job.</div>
+          <div class="callout"><span class="label">Parallelism</span>Independent parts can run at the same time: two researchers on two sub-questions, then a merge. Covered properly in class 6.2 (Orchestration).</div>
+          <div class="callout"><span class="label">Context isolation</span>Each agent keeps its own context window, so one agent's long tool output does not crowd another's reasoning. Class 6.3 (Context engineering) builds on this.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Also: different privileges</span>A worker that reads untrusted documents should not hold a tool that sends email. Splitting roles lets you split permissions, which class 6.5 (AI security) turns into a defense.</div>
+      </div>
+    </section>
+
+    <!-- 4. Newsroom analogy -->
+    <section>
+      <h2><span class="eyebrow">An analogy</span>The newsroom versus the solo reporter</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The newsroom wins on an investigation</span>A reporter digs, an editor shapes the story, a fact-checker verifies every claim. Separate roles catch errors one person would miss, and the work moves in parallel.</div>
+          <div class="callout"><span class="label">The solo reporter wins on a correction</span>Fixing a typo in a two-line story does not need a meeting. Routing it through three desks adds handoffs, delay, and chances to garble the fix.</div>
+        </div>
+        <p class="stmt">Agents are the same. A team earns its overhead only on tasks big or varied enough to need distinct roles.</p>
+      </div>
+    </section>
+
+    <!-- 5. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"More agents is more capable"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">It is not. Every agent added brings more calls, more tokens, more handoffs, and more places to fail. A committee of fragile agents often loses to one agent with good tools.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What a team adds</span>A coordinator's calls on top of every worker's, messages passed between agents, and a new class of bug: the right worker never gets asked, or the wrong one does.</div>
+          <div class="callout"><span class="label">The rule</span>Complexity is a cost, not a feature. Add an agent the way you would add a microservice: when a specific need justifies the operational price.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Senior default -->
+    <section>
+      <h2><span class="eyebrow">The senior default</span>Start with one agent; split on a specific bottleneck</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.1fr 2fr; font-size:0.88em">
+          <div class="gt-head">Signal that a split may help</div><div class="gt-head">Why one agent struggles</div>
+          <div class="gt-accent">Too many tools</div><div>a long tool list costs tokens on every call and degrades tool choice (class 5.2, Tool calling and ReAct)</div>
+          <div class="gt-accent">Context overflow</div><div>tool outputs and history push the important instructions out of focus (class 5.3, Memory for agents)</div>
+          <div class="gt-accent">Conflicting roles</div><div>one prompt cannot be both a thorough researcher and a terse editor</div>
+          <div class="gt-accent">Different privileges</div><div>a step needs permissions no other step should have (least privilege, class 5.6, Reliability and failure modes)</div>
+          <div class="gt-accent">Different models</div><div>a cheap model can route while a stronger one writes (routing, class 5.7, Assemble a single agent)</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">No signal, no split</span>If none of these applies, a single well-built agent is the better system: cheaper, faster, and easier to debug.</div>
+      </div>
+    </section>
+
+    <!-- 7. Supervisor -->
+    <section>
+      <h2><span class="eyebrow">Pattern 1</span>Supervisor: a coordinator delegates and combines</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">One coordinator agent decides which worker acts next, passes it the work, reads the result, and decides again: delegate, collect, repeat, finish. It is the class 5.1 (What is an agent) loop, one level up, where the "tools" are other agents.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Worked example</span>"Explain my HSA limit simply." The supervisor sends the tax researcher to find the limit, then the explainer to rewrite it, then finishes. For "What does AGI mean?" it skips the explainer.</div>
+          <div class="callout"><span class="label">Strengths and risks</span>Flexible: the path adapts per request. The supervisor is also a single point of failure and pays a model call at every hop, so cap the number of hops.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Agent-as-tool vs handoff -->
+    <section>
+      <h2><span class="eyebrow">Two ways to delegate</span>Agent-as-tool versus handoff</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Agent-as-tool</span>The supervisor calls a worker exactly like a function tool (class 5.2, Tool calling and ReAct): it sends a request, gets an answer back, and stays in charge. Simple, and the supervisor sees every result.</div>
+          <div class="callout"><span class="label">Handoff</span>Control moves to the worker, which acts and then hands back (or onward). In LangGraph a node returns <code>Command(goto="worker")</code> to transfer control. Today's build uses handoffs.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Prebuilt versus hand-built</span>LangGraph offers a prebuilt supervisor (the <code>langgraph-supervisor</code> package). We build ours by hand so every routing decision is visible; reach for the prebuilt once you know what it does.</div>
+      </div>
+    </section>
+
+    <!-- 9. Hierarchical -->
+    <section>
+      <h2><span class="eyebrow">Pattern 2</span>Hierarchical: supervisors of supervisors</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">When one coordinator would have too many workers to choose between, group them into sub-teams, each with its own supervisor, and put a lead supervisor on top. It is the org chart applied to agents.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">When it fits</span>Large tasks with natural divisions: a research sub-team and a writing sub-team, each coordinating its own specialists.</div>
+          <div class="callout"><span class="label">The cost</span>Every level adds coordination calls and latency, and a mistake at the top cascades down. Use it only when a flat supervisor cannot manage the choice.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Pipeline -->
+    <section>
+      <h2><span class="eyebrow">Pattern 3</span>Pipeline: a fixed sequence, and that is fine</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Each agent's output feeds the next in a fixed order: research, then write, then review. No coordinator decides the order, because you wrote it.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">It is a workflow</span>By the definition from class 5.1 (What is an agent), a fixed order is a workflow, not an agent deciding its own path. That is often a strength: cheaper, predictable, and easy to test.</div>
+          <div class="callout"><span class="label">When it fits</span>The steps are known and always happen in the same order. If some requests need different steps, you want a supervisor's routing instead.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Three shapes figure -->
+    <section>
+      <h2><span class="eyebrow">At a glance</span>Match the shape to the task</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 225" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+            <defs>
+              <marker id="a61" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+              <marker id="a61g" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#94a3b8"/></marker>
+            </defs>
+            <!-- Supervisor -->
+            <text x="110" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">Supervisor</text>
+            <rect x="65" y="34" width="90" height="26" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="110" y="51" text-anchor="middle" font-size="10" fill="#3730a3">supervisor</text>
+            <rect x="15" y="128" width="84" height="26" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="57" y="145" text-anchor="middle" font-size="10" fill="#065f46">worker A</text>
+            <rect x="121" y="128" width="84" height="26" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="163" y="145" text-anchor="middle" font-size="10" fill="#065f46">worker B</text>
+            <line x1="96" y1="60" x2="64" y2="126" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="124" y1="60" x2="156" y2="126" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="76" y1="128" x2="104" y2="63" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="3,2" marker-end="url(#a61g)"/>
+            <line x1="144" y1="128" x2="116" y2="63" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="3,2" marker-end="url(#a61g)"/>
+            <text x="110" y="182" text-anchor="middle" font-size="10" fill="#475569">delegates (solid), results return (dashed)</text>
+            <text x="110" y="200" text-anchor="middle" font-size="10" fill="#475569">fits: the path varies per request</text>
+
+            <!-- Hierarchical -->
+            <text x="320" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">Hierarchical</text>
+            <rect x="275" y="30" width="90" height="24" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="320" y="46" text-anchor="middle" font-size="10" fill="#3730a3">lead</text>
+            <rect x="228" y="88" width="84" height="24" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="270" y="104" text-anchor="middle" font-size="10" fill="#3730a3">team A lead</text>
+            <rect x="328" y="88" width="84" height="24" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="370" y="104" text-anchor="middle" font-size="10" fill="#3730a3">team B lead</text>
+            <rect x="228" y="146" width="84" height="24" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="270" y="162" text-anchor="middle" font-size="10" fill="#065f46">worker</text>
+            <rect x="328" y="146" width="84" height="24" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="370" y="162" text-anchor="middle" font-size="10" fill="#065f46">worker</text>
+            <line x1="308" y1="54" x2="282" y2="86" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="332" y1="54" x2="358" y2="86" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="270" y1="112" x2="270" y2="144" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="370" y1="112" x2="370" y2="144" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <text x="320" y="200" text-anchor="middle" font-size="10" fill="#475569">fits: large tasks with natural sub-teams</text>
+
+            <!-- Pipeline -->
+            <text x="530" y="18" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">Pipeline</text>
+            <rect x="485" y="30" width="90" height="24" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="530" y="46" text-anchor="middle" font-size="10" fill="#854d0e">research</text>
+            <rect x="485" y="88" width="90" height="24" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="530" y="104" text-anchor="middle" font-size="10" fill="#854d0e">write</text>
+            <rect x="485" y="146" width="90" height="24" rx="6" fill="#fef9c3" stroke="#ca8a04"/><text x="530" y="162" text-anchor="middle" font-size="10" fill="#854d0e">review</text>
+            <line x1="530" y1="54" x2="530" y2="86" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <line x1="530" y1="112" x2="530" y2="144" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a61)"/>
+            <text x="530" y="200" text-anchor="middle" font-size="10" fill="#475569">fits: fixed, known steps</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Team cost -->
+    <section>
+      <h2><span class="eyebrow">The price, part 1</span>What a team costs</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Class 5.7 (Assemble a single agent) summed cost over one agent's steps. A team adds a second sum, over agents:</p>
+        <p style="text-align:center">$$C_{team} \;=\; \sum_{a=1}^{A}\;\sum_{s=1}^{n_a}\bigl(t^{in}_{a,s}\,p_{in} \;+\; t^{out}_{a,s}\,p_{out}\bigr)$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(A\) is the number of agents, the supervisor included. \(n_a\) is how many model calls agent \(a\) makes. \(t^{in}_{a,s}\) and \(t^{out}_{a,s}\) are the input and output tokens of agent \(a\) on call \(s\). \(p_{in}\) and \(p_{out}\) are the prices per token.</div>
+          <div class="callout"><span class="label">What it says</span>The supervisor is not free: it pays a call at every hop, on top of each worker's own calls. The build measures this sum per agent, so you see exactly where the tokens go.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Compounding failure -->
+    <section>
+      <h2><span class="eyebrow">The price, part 2</span>Failure compounds</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">In a chain of agents, the whole run succeeds only if every stage does. If each of \(k\) stages succeeds independently with probability \(p\):</p>
+        <p style="text-align:center">$$P(\text{run succeeds}) \;=\; p^{\,k}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Worked example</span>Five stages that each succeed 95% of the time: \(0.95^5 \approx 0.77\). At 90% each: \(0.9^5 \approx 0.59\). A team of individually good agents can be a mediocre system.</div>
+          <div class="callout"><span class="label">An honest caveat</span>Real stages are not independent, and a reviewer can catch an earlier mistake. Treat the formula as an idealization; the lesson is that reliability decays multiplicatively, so every added stage must earn its place.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Free-tier limits -->
+    <section>
+      <h2><span class="eyebrow">The price, part 3</span>On a free tier, the team is the bottleneck</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.4fr 1fr 2.2fr; font-size:0.86em">
+          <div class="gt-head">Groq free plan, gpt-oss-20b</div><div class="gt-head">Limit</div><div class="gt-head">What it means for a team</div>
+          <div class="gt-accent">Requests per minute</div><div>about 30</div><div>a three-agent run can spend a dozen calls; a few runs a minute at most</div>
+          <div class="gt-accent">Tokens per minute</div><div>about 8K</div><div>each call carries a system prompt and tool schemas; long contexts hit this first</div>
+          <div class="gt-accent">Requests per day</div><div>about 1,000</div><div>an evaluation over many tasks must be paced across the day</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">How the code copes</span>The Module 6 <code>llm.py</code> retries with backoff when it gets HTTP 429 (Too Many Requests), honoring the provider's <code>retry-after</code> hint. Limits are at time of writing; check your console. Ollama is the unlimited but slower fallback.</div>
+      </div>
+    </section>
+
+    <!-- 15. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>A supervisor and two workers on LangGraph</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <ul class="tight">
+              <li><strong>tax_researcher</strong>: the class 5.7 (Assemble a single agent) agent as its own subgraph (retriever, MCP glossary, guardrails), minus its write tool. A research worker only reads.</li>
+              <li><strong>explainer</strong>: rewrites findings in plain language.</li>
+              <li><strong>supervisor</strong>: calls a <code>route</code> tool (native tool calling, <code>tool_choice="required"</code>) and hands off with <code>Command</code>.</li>
+              <li>A hop cap bounds the team, as the step cap bounded one agent in class 5.6 (Reliability and failure modes).</li>
+            </ul>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs>
+                <marker id="b61" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker>
+              </defs>
+              <rect x="120" y="8" width="60" height="22" rx="11" fill="#f1f5f9" stroke="#94a3b8"/><text x="150" y="23" text-anchor="middle" font-size="10" fill="#334155">START</text>
+              <rect x="105" y="78" width="90" height="28" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="150" y="96" text-anchor="middle" font-size="11" fill="#3730a3">supervisor</text>
+              <rect x="6" y="150" width="96" height="28" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="54" y="168" text-anchor="middle" font-size="10" fill="#065f46">tax_researcher</text>
+              <rect x="198" y="150" width="96" height="28" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="246" y="168" text-anchor="middle" font-size="10" fill="#065f46">explainer</text>
+              <rect x="226" y="80" width="60" height="22" rx="11" fill="#f1f5f9" stroke="#94a3b8"/><text x="256" y="95" text-anchor="middle" font-size="10" fill="#334155">END</text>
+              <line x1="150" y1="30" x2="150" y2="76" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b61)"/>
+              <line x1="125" y1="106" x2="66" y2="148" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b61)"/>
+              <line x1="82" y1="150" x2="138" y2="109" stroke="#3f4a63" stroke-width="1.3" stroke-dasharray="3,2" marker-end="url(#b61)"/>
+              <line x1="175" y1="106" x2="234" y2="148" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b61)"/>
+              <line x1="218" y1="150" x2="162" y2="109" stroke="#3f4a63" stroke-width="1.3" stroke-dasharray="3,2" marker-end="url(#b61)"/>
+              <line x1="195" y1="91" x2="224" y2="91" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b61)"/>
+              <text x="150" y="200" text-anchor="middle" font-size="9.5" fill="#475569">Command(goto=...) handoffs; dashed = hand back</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. What the run shows -->
+    <section>
+      <h2><span class="eyebrow">Read the output</span>Routing, cost per agent, and the honest comparison</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 20px; margin:2px 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.74em; line-height:1.7; color:#1e293b">
+          <div style="font-size:0.85em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:4px">console output (illustrative)</div>
+          <div><span style="color:#64748b">"Explain ... my HSA"</span>&nbsp;&nbsp;supervisor &rarr; tax_researcher &rarr; supervisor &rarr; explainer &rarr; supervisor &rarr; <strong style="color:#0f766e">FINISH</strong></div>
+          <div><span style="color:#64748b">"What does AGI stand for?"</span>&nbsp;&nbsp;supervisor &rarr; tax_researcher &rarr; supervisor &rarr; <strong style="color:#0f766e">FINISH</strong> <span style="color:#94a3b8">(no explainer needed)</span></div>
+          <div style="margin-top:6px"><span style="color:#64748b">team, HSA task</span>&nbsp;&nbsp;supervisor 3 calls &middot; tax_researcher 2 &middot; explainer 1 &middot; <strong style="color:#b45309">6 calls total</strong></div>
+          <div><span style="color:#64748b">single agent, same task</span>&nbsp;&nbsp;<strong style="color:#b45309">2 calls</strong></div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Routing includes not routing</span>The supervisor skipped the explainer when the question did not ask for a rewrite. A good coordinator does less when less is needed.</div>
+          <div class="callout"><span class="label">Three times the calls</span>Here the team made three times the calls of the single agent. That overhead is the price of the plain-language role; if users never need it, the single agent is the better system.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Decide when a team beats one agent, and say why not.</li>
+              <li>Choose between supervisor, hierarchical, and pipeline shapes.</li>
+              <li>Quantify a team's cost and its compounding failure.</li>
+              <li>Build a supervisor that routes with a tool and hands off with <code>Command</code>.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment (movies)</div>
+            <p class="stmt" style="margin-top:6px">Add a third specialist, a recommender, to a movie team, and route to it only when the request asks for recommendations. Include a request where no recommender is needed.</p>
+            <div class="callout"><span class="label">Next, class 6.2 (Orchestration)</span>Make the team coordinate properly: workers as subgraphs, shared versus private state, parallel fan-out, and a reviewer loop.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>

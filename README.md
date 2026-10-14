@@ -63,7 +63,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [Suggested reading](modules/module-5-ai-agents/suggested_reading_list/)
 
 ### Module 6: Agentic AI
-- 6.1 Multi-agent architectures (upcoming)
+- [6.1 Multi-agent architectures](modules/module-6-agentic-ai/01-multi-agent-architectures/)
 - 6.2 Orchestration (upcoming)
 - 6.3 Context engineering (upcoming)
 - 6.4 Guardrails, routing, compliance (upcoming)
