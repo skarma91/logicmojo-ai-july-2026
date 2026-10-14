@@ -1,0 +1,6 @@
+data/chroma/
+data/corpus.jsonl
+data/eval.jsonl
+embeddings.npy
+__pycache__/
+*.pyc
