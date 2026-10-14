@@ -64,14 +64,13 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 
 ### Module 6: Agentic AI
 - [6.1 Multi-agent architectures](modules/module-6-agentic-ai/01-multi-agent-architectures/)
-- 6.2 Orchestration (upcoming)
+- [6.2 Orchestration](modules/module-6-agentic-ai/02-orchestration/)
 - 6.3 Context engineering (upcoming)
 - 6.4 Guardrails, routing, compliance (upcoming)
 - 6.5 AI security (upcoming)
 - 6.6 Observability and tracing (upcoming)
 - 6.7 Evaluating agentic systems (upcoming)
 - 6.8 Deployment (upcoming)
-- 6.9 No-code with n8n (upcoming)
 - Module 6 milestone assignment (upcoming)
 - Suggested reading (upcoming)
 

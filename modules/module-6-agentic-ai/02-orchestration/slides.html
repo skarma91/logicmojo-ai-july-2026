@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.2 - Orchestration</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.2</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.2</span>
+      <h1>Make the team coordinate</h1>
+      <p class="lead">Class 6.1 (Multi-agent architectures) built a team that takes turns. Now it coordinates properly: each worker is its own graph, state is split deliberately between shared and private, independent work runs in parallel, and a reviewer loops a draft back until it passes.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>Four orchestration mechanics</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Subgraphs<span class="step-note">Each worker its own graph.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Shared versus private state<span class="step-note">And reducers.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Fan-out and fan-in<span class="step-note">Parallel workers, one merge.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Bounded loops<span class="step-note">The reviewer-writer loop.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>State, reducers, and conditional edges from class 5.4 (LangGraph); the team from class 6.1 (Multi-agent architectures).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>What each agent should see, in class 6.3 (Context engineering).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Subgraphs -->
+    <section>
+      <h2><span class="eyebrow">Mechanic 1</span>Subgraphs: each worker is its own graph</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A worker is a compiled LangGraph graph (class 5.4, LangGraph) used as a single step inside the team graph. The team sees its inputs and outputs; its internal loop, tool calls, and messages stay inside.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Why encapsulate</span>The team graph stays small and readable, each worker can be built and tested alone, and a worker's long scratch work never floods the team's state.</div>
+          <div class="callout"><span class="label">In the build</span>Each researcher is the class 5.7 (Assemble a single agent) agent (retriever, MCP glossary, guardrails), unchanged. The team calls it twice, with two different focuses.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Mapping state -->
+    <section>
+      <h2><span class="eyebrow">Wiring a subgraph</span>Two ways to connect parent and child</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Add it directly as a node</span>When the child's state shares keys with the parent's, pass the compiled graph to <code>add_node</code>. Shared keys flow in and out automatically.</div>
+          <div class="callout"><span class="label">Call it from a wrapper node</span>When the schemas differ (the usual case), a small node builds the child's input, calls <code>child.invoke(...)</code>, and maps the result back. The build does this: it passes a task in and takes only the final findings out.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The rule of thumb</span>The wrapper is a translation layer. It is also where you decide what the child is allowed to see and what it returns, which is exactly the question class 6.3 (Context engineering) sharpens.</div>
+      </div>
+    </section>
+
+    <!-- 5. Shared vs private -->
+    <section>
+      <h2><span class="eyebrow">Mechanic 2</span>Shared versus private state</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.6fr 1.6fr; font-size:0.86em">
+          <div class="gt-head"></div><div class="gt-head">Shared (team state)</div><div class="gt-head">Private (one agent)</div>
+          <div class="gt-accent">Holds</div><div>what everyone needs: the question, findings, the draft, the verdict</div><div>an agent's scratch work: its messages, tool calls, retries</div>
+          <div class="gt-accent">Visible to</div><div>every node in the team graph</div><div>only that agent's own graph</div>
+          <div class="gt-accent">In the build</div><div><code>question</code>, <code>findings</code>, <code>notes</code>, <code>draft</code>, <code>reviews</code></div><div>each researcher's message history</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">A design decision, not a default</span>Ask of every field: does another agent need this to do its job? If not, keep it private.</div>
+      </div>
+    </section>
+
+    <!-- 6. Reducers -->
+    <section>
+      <h2><span class="eyebrow">Merging parallel writes</span>Reducers decide what happens</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Append: <code>Annotated[list, operator.add]</code></span>Both parallel researchers write <code>findings</code>; the reducer appends, so both results survive. Use it for anything parallel workers contribute to.</div>
+          <div class="callout"><span class="label">Overwrite: a plain key</span>The latest value replaces the old one. Right for <code>draft</code>: only the newest draft matters.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">What happens if you forget</span>Two parallel branches writing a plain key do not silently lose one update. LangGraph refuses: <code>InvalidUpdateError: At key 'findings': Can receive only one value per step</code>. The fix is a reducer. We triggered this deliberately to confirm it.</div>
+      </div>
+    </section>
+
+    <!-- 7. Sharing trade-off -->
+    <section>
+      <h2><span class="eyebrow">The trade-off</span>Too much sharing versus too little</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Too much</span>Every agent reads everyone's raw work. Prompts grow, cost rises, and the model attends to irrelevant detail. A writer does not need the researcher's twenty retrieved passages, only the findings.</div>
+          <div class="callout"><span class="label">Too little</span>An agent lacks what it needs and guesses, or calls a tool again to recover information another agent already had. The reviewer, for instance, must see the notes to check the draft against them.</div>
+        </div>
+        <p class="stmt">The right amount is "exactly what this agent's job needs". Class 6.3 (Context engineering) turns that into a measured technique.</p>
+      </div>
+    </section>
+
+    <!-- 8. Fan-out figure -->
+    <section>
+      <h2><span class="eyebrow">Mechanic 3</span>Fan-out and fan-in with <code>Send</code></h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A routing function returns a list of <code>Send("researcher", payload)</code> objects, one per independent task. LangGraph runs them in the same step, in parallel. The merge node runs once, after all of them finish.</p>
+            <div class="callout"><span class="label">Each Send carries its own input</span>Here: the question plus a focus. The researcher node receives only that payload, not the whole team state.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="a62" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <rect x="105" y="10" width="90" height="26" rx="13" fill="#f1f5f9" stroke="#94a3b8"/><text x="150" y="27" text-anchor="middle" font-size="10" fill="#334155">question</text>
+              <rect x="10" y="88" width="120" height="30" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="70" y="102" text-anchor="middle" font-size="9.5" fill="#065f46">researcher</text><text x="70" y="113" text-anchor="middle" font-size="8.5" fill="#065f46">focus: limits</text>
+              <rect x="170" y="88" width="120" height="30" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="230" y="102" text-anchor="middle" font-size="9.5" fill="#065f46">researcher</text><text x="230" y="113" text-anchor="middle" font-size="8.5" fill="#065f46">focus: eligibility</text>
+              <rect x="105" y="166" width="90" height="28" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="150" y="184" text-anchor="middle" font-size="10" fill="#3730a3">merge</text>
+              <line x1="135" y1="36" x2="82" y2="86" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a62)"/>
+              <line x1="165" y1="36" x2="218" y2="86" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a62)"/>
+              <line x1="82" y1="118" x2="133" y2="164" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a62)"/>
+              <line x1="218" y1="118" x2="167" y2="164" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a62)"/>
+              <text x="58" y="62" text-anchor="middle" font-size="9" fill="#475569">Send</text>
+              <text x="242" y="62" text-anchor="middle" font-size="9" fill="#475569">Send</text>
+              <text x="150" y="212" text-anchor="middle" font-size="9" fill="#475569">fan-out (parallel), then fan-in (one merge)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Latency -->
+    <section>
+      <h2><span class="eyebrow">Why parallelize</span>Sequential versus parallel latency</h2>
+      <div class="body">
+        <p style="text-align:center">$$L_{seq} = \sum_{i=1}^{m} \ell_i \qquad\qquad L_{par} \approx \max_{i} \ell_i + \ell_{merge}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(m\) is the number of independent workers, \(\ell_i\) the time worker \(i\) takes, and \(\ell_{merge}\) the time to combine results. Sequential waits for each in turn; parallel waits only for the slowest.</div>
+          <div class="callout"><span class="label">Measured in the build</span>The timeline prints both: the researchers' durations summed (what sequential would cost) and the span they actually took. With two equal workers, parallel roughly halves the wait. The figure on the build slide is illustrative.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Rate limits -->
+    <section>
+      <h2><span class="eyebrow">The honest caveat</span>Rate limits cap real parallelism</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Parallel branches send their requests at the same moment, which is exactly what a rate limit punishes. On Groq's free plan (at time of writing about 30 requests and 8K tokens per minute for gpt-oss-20b), a wide fan-out stalls on HTTP 429 and the parallel speedup disappears.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Keep the fan-out narrow</span>Two or three branches is comfortable; ten will mostly wait. Throttle the width to what your tier allows.</div>
+          <div class="callout"><span class="label">Back off, with jitter</span>The Module 6 <code>llm.py</code> retries on 429 with a little random jitter, so parallel branches do not all retry at the same instant and collide again.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Conditional routing -->
+    <section>
+      <h2><span class="eyebrow">Mechanic 4, part 1</span>Conditional routing</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A conditional edge reads the state and returns the next node's name (class 5.4, LangGraph), now at team scale: send a request to the right specialist, or send a draft back for revision.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Route on a field, not on prose</span>The build routes on <code>state["approved"]</code>, a boolean set from a structured verdict. Parsing "looks good to me" out of free text is fragile; reading a field is not.</div>
+          <div class="callout"><span class="label">Every route needs an exit</span>The routing function also checks the round count. Routing that can always send work back is a loop with no guaranteed end.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Loop figure -->
+    <section>
+      <h2><span class="eyebrow">Mechanic 4, part 2</span>The reviewer-writer loop</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The writer drafts from the merged notes. The reviewer checks the draft and either approves it or sends it back with specific fixes. The writer revises using that feedback, and the loop repeats until approval or the round cap.</p>
+            <div class="callout"><span class="label">The exit is mandatory</span>Approval or at most three rounds: the step cap from class 5.6 (Reliability and failure modes), applied to a team loop.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="b62" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <rect x="20" y="70" width="100" height="32" rx="6" fill="#dcfce7" stroke="#16a34a"/><text x="70" y="90" text-anchor="middle" font-size="11" fill="#065f46">writer</text>
+              <rect x="180" y="70" width="100" height="32" rx="6" fill="#eef2ff" stroke="#6366f1"/><text x="230" y="90" text-anchor="middle" font-size="11" fill="#3730a3">reviewer</text>
+              <rect x="190" y="160" width="80" height="26" rx="13" fill="#f1f5f9" stroke="#94a3b8"/><text x="230" y="177" text-anchor="middle" font-size="10" fill="#334155">END</text>
+              <line x1="120" y1="80" x2="178" y2="80" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b62)"/>
+              <text x="149" y="73" text-anchor="middle" font-size="9" fill="#475569">draft</text>
+              <path d="M 230 70 C 230 25, 70 25, 70 68" fill="none" stroke="#b45309" stroke-width="1.3" stroke-dasharray="4,2" marker-end="url(#b62)"/>
+              <text x="150" y="30" text-anchor="middle" font-size="9" fill="#b45309">revise + feedback</text>
+              <line x1="230" y1="102" x2="230" y2="158" stroke="#16a34a" stroke-width="1.3" marker-end="url(#b62)"/>
+              <text x="236" y="134" font-size="9" fill="#065f46">approve, or</text>
+              <text x="236" y="145" font-size="9" fill="#065f46">cap reached</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Expected iterations -->
+    <section>
+      <h2><span class="eyebrow">How many rounds?</span>Expected iterations of a bounded loop</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">If each revision passes review with probability \(q\), and the loop stops at \(k\) rounds at most, the expected number of rounds is:</p>
+        <p style="text-align:center">$$\mathbb{E}[\text{rounds}] \;=\; \sum_{j=0}^{k-1}(1-q)^j \;=\; \frac{1-(1-q)^k}{q}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(q\) is the chance a single draft passes; \(k\) the round cap; \((1-q)^j\) the chance the first \(j\) drafts all failed, which is when round \(j+1\) happens. Without a cap the mean is \(1/q\).</div>
+          <div class="callout"><span class="label">Worked example (illustrative)</span>\(q = 0.5\), \(k = 3\): \((1 - 0.125)/0.5 = 1.75\) rounds on average. Each round costs a writer call and a reviewer call, so the loop's cost scales with this number.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Structured verdicts -->
+    <section>
+      <h2><span class="eyebrow">Make the reviewer useful</span>Structured verdicts, and exact checks first</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">A verdict tool, not prose</span>The reviewer calls a <code>verdict</code> tool with <code>approve</code> (true or false) and <code>feedback</code> (specific fixes), with <code>tool_choice="required"</code>. The router reads a boolean; the writer reads concrete instructions.</div>
+          <div class="callout"><span class="label">Exact checks override the LLM</span>Before trusting the model's opinion, run what can be checked exactly: the word limit, and whether every cited source id really appears in the notes. If an exact check fails, the draft is not approved, whatever the LLM said.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Specific feedback converges</span>"Cite the limit's source" gets fixed in one round. "Make it better" can loop until the cap, because the writer cannot tell what to change.</div>
+      </div>
+    </section>
+
+    <!-- 15. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Parallel research, merge, and a review loop</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 20px; margin:2px 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.72em; line-height:1.7; color:#1e293b">
+          <div style="font-size:0.85em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:4px">console output (illustrative)</div>
+          <div><span style="color:#64748b">researcher[limits]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>|##########################| 1.03s</div>
+          <div><span style="color:#64748b">researcher[eligibility]&nbsp;</span>|##########################| 1.03s &nbsp;<span style="color:#94a3b8">(bars overlap: parallel)</span></div>
+          <div><span style="color:#64748b">sequential ~2.05s (sum), parallel 1.03s (max)</span></div>
+          <div style="margin-top:6px"><span style="color:#64748b">round 1</span>&nbsp;&nbsp;revise &nbsp;&nbsp;checks failed: <strong style="color:#b45309">no source ids cited</strong></div>
+          <div><span style="color:#64748b">round 2</span>&nbsp;&nbsp;<strong style="color:#0f766e">APPROVED</strong> &nbsp;checks failed: none</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What it shows</span>The two researchers ran at the same time, so the wait was about the longest one, not the sum. The first draft forgot its citations; an exact check caught it and the loop fixed it.</div>
+          <div class="callout"><span class="label">What ships</span><code>main.py</code> (the team, timeline, and costs) plus the reused class 5.7 (Assemble a single agent) worker. Every call is attributed to an agent through the Module 6 <code>llm.py</code>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Nest a worker graph inside a team, with a wrapper that maps state.</li>
+              <li>Split state into shared and private, and pick the right reducer.</li>
+              <li>Fan out independent work with <code>Send</code> and fan it back in.</li>
+              <li>Build a bounded reviewer loop with structured verdicts.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment (movies)</div>
+            <p class="stmt" style="margin-top:6px">Add a writer-reviewer loop to a movie blurb generator: a blurb passes only if it has at most 60 words and names the director (an exact check plus an LLM verdict), capped at three rounds.</p>
+            <div class="callout"><span class="label">Next, class 6.3 (Context engineering)</span>Decide exactly what each agent sees, compress the handoffs, and measure the token savings.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
