@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.3 - Context engineering</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.3</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.3</span>
+      <h1>The real cost lever: context</h1>
+      <p class="lead">Class 6.2 (Orchestration) made the team coordinate. Every agent on it pays for every token it reads, so what each agent sees decides both the bill and the quality. Today we choose that context deliberately and measure the difference with the provider's own token counts.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>Four context techniques</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Scope each agent's context<span class="step-note">Only what its job needs.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Compress handoffs<span class="step-note">A note, not a transcript.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Keep contexts clean<span class="step-note">Pollution lowers quality.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Cache across the team<span class="step-note">Stable prefix first.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>The token budget and compaction from class 5.3 (Memory); prompt caching from class 4.7 (How LLMs are served); shared state from class 6.2 (Orchestration).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>Clean contexts as a defense in class 6.5 (AI security) and the deployment budget in class 6.8 (Deployment).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Each agent sees what it needs -->
+    <section>
+      <h2><span class="eyebrow">Technique 1</span>Each agent sees only what it needs</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The team state can hold everything. Holding data and showing it to a model are separate decisions. A small per-agent context function picks the fields one agent needs and formats only those into its prompt.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The naive default</span>Pass the whole state to every node's prompt. It works at first and then gets slower, costlier, and less accurate as the state grows with every round.</div>
+          <div class="callout"><span class="label">The question to ask per agent</span>"What would a human in this role need on their desk?" A copy editor needs the draft and the facts behind it, not the researcher's search history.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Figure: context functions -->
+    <section>
+      <h2><span class="eyebrow">The shape</span>One state, a different view for each agent</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The state on the left grows with every step. Each context function is a filter between it and one agent's prompt.</p>
+            <div class="callout"><span class="label">In the build</span><code>writer_messages()</code> returns the question and the handoff notes. <code>reviewer_messages()</code> adds the draft. Neither sees raw transcripts or old drafts.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="a63" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <rect x="10" y="30" width="120" height="160" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+              <text x="70" y="50" text-anchor="middle" font-size="11" font-weight="bold" fill="#334155">team state</text>
+              <text x="22" y="74" font-size="9.5" fill="#334155">question</text>
+              <text x="22" y="94" font-size="9.5" fill="#94a3b8">raw transcripts</text>
+              <text x="22" y="114" font-size="9.5" fill="#334155">handoff notes</text>
+              <text x="22" y="134" font-size="9.5" fill="#334155">current draft</text>
+              <text x="22" y="154" font-size="9.5" fill="#94a3b8">old drafts</text>
+              <text x="22" y="174" font-size="9.5" fill="#94a3b8">verdict history</text>
+              <rect x="210" y="40" width="100" height="56" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+              <text x="260" y="60" text-anchor="middle" font-size="11" fill="#065f46">writer</text>
+              <text x="260" y="76" text-anchor="middle" font-size="8.5" fill="#065f46">question</text>
+              <text x="260" y="88" text-anchor="middle" font-size="8.5" fill="#065f46">+ notes</text>
+              <rect x="210" y="124" width="100" height="56" rx="8" fill="#eef2ff" stroke="#6366f1"/>
+              <text x="260" y="144" text-anchor="middle" font-size="11" fill="#3730a3">reviewer</text>
+              <text x="260" y="160" text-anchor="middle" font-size="8.5" fill="#3730a3">question + notes</text>
+              <text x="260" y="172" text-anchor="middle" font-size="8.5" fill="#3730a3">+ draft</text>
+              <line x1="132" y1="90" x2="207" y2="68" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a63)"/>
+              <line x1="132" y1="130" x2="207" y2="152" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a63)"/>
+              <text x="160" y="66" text-anchor="middle" font-size="8.5" fill="#475569">writer_context</text>
+              <text x="170" y="160" text-anchor="middle" font-size="8.5" fill="#475569">reviewer_context</text>
+              <text x="160" y="210" text-anchor="middle" font-size="9" fill="#475569">grey fields stay in state, never in a prompt</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Budget formula -->
+    <section>
+      <h2><span class="eyebrow">Where tokens go</span>The per-agent token budget</h2>
+      <div class="body">
+        <p style="text-align:center">$$T_{agent} = T_{system} + T_{tools} + T_{context} + T_{task}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every term</span>\(T_{system}\): the instructions. \(T_{tools}\): the tool schemas, sent on every call. \(T_{context}\): what you choose to show from the state. \(T_{task}\): the request itself. The single-agent budget from class 5.3 (Memory for agents), applied to one agent on a team.</div>
+          <div class="callout"><span class="label">Summed over the team</span>The team's input cost is this total over every call of every agent, which is the double sum from class 6.1 (Multi-agent architectures). \(T_{context}\) is the term that grows round by round, and the only one a context function controls.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Worked budget -->
+    <section>
+      <h2><span class="eyebrow">Worked example (illustrative)</span>The writer's budget, before and after</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 1fr; font-size:0.86em">
+          <div class="gt-head">Writer, round 1</div><div class="gt-head">\(T_{system}\)</div><div class="gt-head">\(T_{tools}\)</div><div class="gt-head">\(T_{context}\)</div><div class="gt-head">\(T_{task}\)</div><div class="gt-head">\(T_{agent}\)</div>
+          <div class="gt-accent">Full state</div><div>310</div><div>0</div><div>1,060</div><div>20</div><div>1,390</div>
+          <div class="gt-accent">Scoped notes</div><div>310</div><div>0</div><div>85</div><div>20</div><div>415</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:12px">
+          <div class="callout"><span class="label">Reading it</span>System and task do not change. The context term shrinks by more than ten times, so the whole call shrinks by about 70%. These numbers are illustrative; the build prints yours.</div>
+          <div class="callout"><span class="label">It compounds</span>In round 2 the full-state writer also rereads the first draft and its verdict. Scoped context stays flat across rounds, so the gap widens with every loop.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Compress handoffs -->
+    <section>
+      <h2><span class="eyebrow">Technique 2</span>Hand off a note, not the transcript</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">When one agent passes work to the next, send a short structured note. This is the compaction from class 5.3 (Memory for agents), applied between agents instead of within one.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Facts</span>Only the sentences that carry a cited claim. The reasoning that led there stays behind.</div>
+          <div class="callout"><span class="label">Sources</span>The ids behind those facts, checked against what the agent actually retrieved.</div>
+          <div class="callout"><span class="label">Open questions</span>What the agent could not find, so the next agent does not assume it was covered.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Note example -->
+    <section>
+      <h2><span class="eyebrow">What a note looks like</span>A researcher's handoff on mortgage interest</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 20px; margin:2px 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.74em; line-height:1.7; color:#1e293b">
+          <div style="font-size:0.85em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:4px">handoff note (example)</div>
+          <div><strong>## acquisition debt limit</strong></div>
+          <div>- Interest is deductible on up to 750,000 dollars of acquisition debt taken on after December 15, 2017 [p936-2025-limit].</div>
+          <div>- Points paid to buy a main home are often deductible in the year paid [p936-2025-points].</div>
+          <div>sources: p936-2025-limit, p936-2025-points</div>
+          <div>open: <span style="color:#b45309">nothing found on home equity loans used for repairs</span></div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What was dropped</span>Three searches, their full results, a failed glossary call, and the model's reasoning. Several hundred tokens became about fifty.</div>
+          <div class="callout"><span class="label">What was kept</span>Every claim still has its id, so the writer can cite it and the reviewer can check it.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Compression ratio -->
+    <section>
+      <h2><span class="eyebrow">Measure it</span>The compression ratio, and keeping sources</h2>
+      <div class="body">
+        <p style="text-align:center">$$r = \frac{T_{handoff}}{T_{raw}}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(T_{handoff}\) is the token count of the note you send; \(T_{raw}\) the token count of the transcript you would otherwise forward. Smaller \(r\) means more compression: \(r = 0.1\) sends a tenth.</div>
+          <div class="callout"><span class="label">Compression is lossy</span>So decide what must survive. Source ids always do: a fact without its id cannot be cited downstream. The build also flags any id the researcher cited but never retrieved, a cheap catch for a made-up citation.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Pollution -->
+    <section>
+      <h2><span class="eyebrow">Technique 3</span>Context pollution lowers quality</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Extra context is not neutral. The model attends to whatever is in front of it, so irrelevant text competes with the text that matters.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Stale</span>An old draft or last year's figure (the 2024 limit sitting next to the 2025 one) invites the model to mix them.</div>
+          <div class="callout"><span class="label">Irrelevant</span>Search results for the other researcher's focus pull the answer off topic.</div>
+          <div class="callout"><span class="label">Buried</span>Models use information at the start and end of a long context better than in the middle (Liu and colleagues, "Lost in the Middle", 2023).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Untrusted output -->
+    <section>
+      <h2><span class="eyebrow">Pollution with intent</span>Raw tool output must not travel between agents</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Why it matters on a team</span>Class 5.6 (Reliability and failure modes) labeled tool output as untrusted inside one agent. Forwarding a transcript carries that untrusted text into the next agent's prompt, where the label may be gone and the agent may have more permissions.</div>
+          <div class="callout"><span class="label">The note is a filter</span>A handoff note contains only the researcher's own cited claims, never the pages it read. That narrows what an injected instruction could reach. Class 6.5 (AI security) attacks this boundary directly.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"Give every agent everything, to be safe"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">It feels safe because nothing is missing. In practice it costs more and answers worse.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Cost</span>Every round rereads a growing pile. On a free tier the tokens-per-minute cap arrives sooner, and the team waits on 429 retries.</div>
+          <div class="callout"><span class="label">Quality</span>More distractors, stale numbers, and buried facts. Less, well-chosen context is the safer choice. The test that settles it is a quality check run on both versions, which the build does.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. How caching works -->
+    <section>
+      <h2><span class="eyebrow">Technique 4</span>How Groq prompt caching works</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.4fr; font-size:0.86em">
+          <div class="gt-head">Property</div><div class="gt-head">What it means for you</div>
+          <div class="gt-accent">Automatic</div><div>No setting. On gpt-oss models, a request whose start matches a recent request token for token reuses that prefix. Hits are likely, not guaranteed.</div>
+          <div class="gt-accent">Expires</div><div>A cached prefix is dropped after 2 hours without use.</div>
+          <div class="gt-accent">Exact prefix</div><div>Matching stops at the first differing token. Everything after it is computed fresh.</div>
+          <div class="gt-accent">Minimum length</div><div>Model dependent, roughly 128 to 1024 tokens. Shorter prefixes are never cached.</div>
+          <div class="gt-accent">Cheaper</div><div>Cached input tokens are billed at half price (at time of writing).</div>
+          <div class="gt-accent">Rate limits</div><div>Cached tokens do not count toward the rate limits, which eases the free-tier caps. They are still subtracted after processing, so a burst of large parallel requests can hit the cap anyway.</div>
+          <div class="gt-accent">Measured</div><div><code>usage.prompt_tokens_details.cached_tokens</code>, recorded per call by the Module 6 <code>llm.py</code>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Prefix figure -->
+    <section>
+      <h2><span class="eyebrow">The rule</span>Stable content first, variable content last</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Both prompts carry the same parts. Only the order differs, and the order decides what can be cached.</p>
+            <div class="callout"><span class="label">One character is enough</span>A timestamp or request id on line one changes the first token, so nothing after it ever matches. This is one of the most common caching mistakes.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 320 170" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <text x="10" y="22" font-size="10" font-weight="bold" fill="#b45309">volatile first</text>
+              <rect x="10" y="30" width="40" height="30" fill="#fee2e2" stroke="#dc2626"/><text x="30" y="49" text-anchor="middle" font-size="8" fill="#7f1d1d">time</text>
+              <rect x="50" y="30" width="80" height="30" fill="#f1f5f9" stroke="#94a3b8"/><text x="90" y="49" text-anchor="middle" font-size="8" fill="#334155">state dump</text>
+              <rect x="130" y="30" width="90" height="30" fill="#f1f5f9" stroke="#94a3b8"/><text x="175" y="49" text-anchor="middle" font-size="8" fill="#334155">team rules + role</text>
+              <rect x="220" y="30" width="90" height="30" fill="#f1f5f9" stroke="#94a3b8"/><text x="265" y="49" text-anchor="middle" font-size="8" fill="#334155">task</text>
+              <text x="160" y="76" text-anchor="middle" font-size="8.5" fill="#b45309">first token differs: nothing cached</text>
+              <text x="10" y="104" font-size="10" font-weight="bold" fill="#0f766e">stable first</text>
+              <rect x="10" y="112" width="120" height="30" fill="#dcfce7" stroke="#16a34a"/><text x="70" y="131" text-anchor="middle" font-size="8" fill="#065f46">team rules + role</text>
+              <rect x="130" y="112" width="100" height="30" fill="#f1f5f9" stroke="#94a3b8"/><text x="180" y="131" text-anchor="middle" font-size="8" fill="#334155">notes</text>
+              <rect x="230" y="112" width="80" height="30" fill="#f1f5f9" stroke="#94a3b8"/><text x="270" y="131" text-anchor="middle" font-size="8" fill="#334155">task</text>
+              <text x="70" y="158" text-anchor="middle" font-size="8.5" fill="#065f46">cached on repeat</text>
+              <text x="220" y="158" text-anchor="middle" font-size="8.5" fill="#475569">computed fresh</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. What goes where -->
+    <section>
+      <h2><span class="eyebrow">Applying the rule</span>What goes in the prefix, what goes last</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Prefix: identical on every call</span>Shared team rules, the agent's role, tool schemas, fixed examples. Write them once as constants, never with f-strings that insert a value.</div>
+          <div class="callout"><span class="label">Tail: changes per call</span>The notes, the draft, feedback, the question, and any time or request id you need. Put the id in a log, or at the very end if the model must see it.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Across agents too</span>When several agents open with the same shared rules, the same prefix is reused. Keep the shared block byte for byte identical: one agent with an extra space at the top breaks the match for itself.</div>
+      </div>
+    </section>
+
+    <!-- 16. Cache savings -->
+    <section>
+      <h2><span class="eyebrow">What caching saves</span>The saving, in one line</h2>
+      <div class="body">
+        <p style="text-align:center">$$\Delta C = c \cdot p_{in} \cdot 0.5$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(c\) is the number of cached input tokens, read from <code>cached_tokens</code>; \(p_{in}\) the price per input token; 0.5 the discount, since cached tokens cost half. \(\Delta C\) is the money saved compared with paying full price for those tokens.</div>
+          <div class="callout"><span class="label">Worked example (illustrative)</span>20,000 cached tokens at \(p_{in}\) = 0.075 dollars per million: \(20{,}000 \times 0.075 \times 10^{-6} \times 0.5\) = 0.00075 dollars. Small in money. The bigger free-tier gain is that those 20,000 tokens did not count toward the 8K-per-minute cap.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17. Memoization -->
+    <section>
+      <h2><span class="eyebrow">Caching outside the model</span>Memoization and shared retrieval</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Memoize tool results</span>If a tool is called again with the same arguments, return the stored result. Safe for pure lookups like retrieval over a fixed corpus; wrong for anything whose answer changes, such as a live price or an inbox.</div>
+          <div class="callout"><span class="label">Share it across the team</span>One memo behind every researcher means two agents that search the same thing pay once. The build normalizes the query (case and spacing) before looking it up.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Be honest about the hit rate</span>Memoization only helps when queries repeat. On a two-question run the count is often zero or one. It pays off on long sessions and many users asking similar things.</div>
+      </div>
+    </section>
+
+    <!-- 18. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Same team, same questions, two context policies</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 20px; margin:2px 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.7em; line-height:1.65; color:#1e293b">
+          <div style="font-size:0.85em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:4px">console output (illustrative)</div>
+          <div><span style="color:#64748b">agent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;baseline [cached]&nbsp;&nbsp;engineered [cached]&nbsp;&nbsp;change</span></div>
+          <div>reviewer&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4825 [0]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1170 [384]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#0f766e">-76%</strong></div>
+          <div>tax_researcher&nbsp;&nbsp;&nbsp;3489 [0]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3425 [0]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;-2%</div>
+          <div>writer&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;4466 [0]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;901 [256]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#0f766e">-80%</strong></div>
+          <div style="margin-top:4px">handoff contribution limits: raw=446 note=42 r=0.09</div>
+          <div>quality [p969-2025-limit]: baseline=PASS (rounds 2) engineered=PASS (rounds 1)</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What it shows</span>The writer and reviewer shrink sharply, only the engineered run can cache, and the answer still cites the right source. The researcher barely moves, because it was not changed. Whether a short prefix caches at all depends on the model's minimum.</div>
+          <div class="callout"><span class="label">How it is measured</span>Prompt and cached tokens are the provider's own usage numbers per call, attributed per agent. Handoff sizes are counted with <code>tiktoken</code>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 19. Reading results -->
+    <section>
+      <h2><span class="eyebrow">Read your run carefully</span>Three things that can surprise you</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Cached is 0 for an agent</span>Its stable prefix is below the model's minimum cacheable length, or it was called only once. Do not pad the prompt to force a cache hit.</div>
+          <div class="callout"><span class="label">Quality fails in one mode</span>Then the saving does not count. Check what the note dropped: usually a fact without its id, or an open question the writer ignored.</div>
+          <div class="callout"><span class="label">Numbers vary run to run</span>The model chooses different searches and drafts. Compare the size of the change, not the exact count, and run more than once before concluding.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 20. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Write a per-agent context function and size its budget.</li>
+              <li>Compress a handoff into a note that keeps its sources.</li>
+              <li>Spot context pollution and keep raw tool output contained.</li>
+              <li>Order a prompt for caching and read <code>cached_tokens</code>.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment (movies)</div>
+            <p class="stmt" style="margin-top:6px">A movie critic agent is fed the whole catalog. Trim its context to what the request needs, and show its prompt tokens drop while its pick still passes the same check.</p>
+            <div class="callout"><span class="label">Next, class 6.4 (Guardrails, routing, and compliance)</span>Rails at team scale: routing requests by risk, and policy checks between agents.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
