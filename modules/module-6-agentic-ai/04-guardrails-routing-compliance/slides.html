@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.4 - Guardrails, routing, and compliance</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.4</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.4</span>
+      <h1>Keep the team safe and compliant</h1>
+      <p class="lead">The team from class 6.3 (Context engineering) is cheap and focused, and it will answer anything it is handed. Today we put one layer around it that checks what comes in, routes by meaning, strips personal data before anything is logged or sent onward, and checks what goes out.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>One layer around the whole team</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Input and output guards<span class="step-note">Rules first, a policy classifier second.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Semantic routing<span class="step-note">Choose the path by meaning.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">PII redaction<span class="step-note">Typed placeholders, validated.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Compliance by design<span class="step-note">GDPR and HIPAA intuition.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Single-agent rails from class 5.6 (Reliability and failure modes); embeddings from class 4.4 (Embeddings and vector databases).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>Attacks that get past a gateway, in class 6.5 (AI security); traces that must not leak, in class 6.6 (Observability and tracing).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. What's new -->
+    <section>
+      <h2><span class="eyebrow">Not a repeat</span>What is new beyond single-agent rails</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.7fr 1.7fr; font-size:0.84em">
+          <div class="gt-head"></div><div class="gt-head">Class 5.6 (Reliability and failure modes)</div><div class="gt-head">Class 6.4 (this class)</div>
+          <div class="gt-accent">Where</div><div>inside one agent's loop</div><div>a gateway around the whole team</div>
+          <div class="gt-accent">Checks</div><div>step caps, call validation, regex scans of tool output</div><div>rules plus a real policy classifier on every team-bound request</div>
+          <div class="gt-accent">Paths</div><div>one agent, one path</div><div>routing by meaning: answer, refuse, canned reply, or fallback</div>
+          <div class="gt-accent">Data</div><div>not addressed</div><div>PII redacted before any log, trace, model, or agent sees it</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The design principle</span>The team's code does not change at all. Every rail lives outside it, so there is one place to read, test, and audit.</div>
+      </div>
+    </section>
+
+    <!-- 4. Airport analogy -->
+    <section>
+      <h2><span class="eyebrow">An analogy</span>Security before the gate, customs on the way out</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Input guard: airport security</span>Checks every request before any agent sees it. It stops what must never board: disallowed requests, prompt attacks, oversized pastes. It is cheap per passenger, so it runs on everyone.</div>
+          <div class="callout"><span class="label">Output guard: customs</span>Checks the answer before the user sees it. It catches what slipped through or was created on board: personal data in the reply, or an answer with no source behind it.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why both</span>An input guard cannot see what the team will produce, and an output guard sees too late to save the cost of a bad run. Each catches failures the other cannot.</div>
+      </div>
+    </section>
+
+    <!-- 5. Gateway figure -->
+    <section>
+      <h2><span class="eyebrow">The shape</span>The gateway, stage by stage</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 640 210" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+            <defs><marker id="a64" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            <rect x="10" y="40" width="80" height="44" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="50" y="66" text-anchor="middle" font-size="13.5" fill="#334155">rules</text>
+            <rect x="115" y="40" width="80" height="44" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="155" y="66" text-anchor="middle" font-size="13.5" fill="#334155">redact</text>
+            <rect x="220" y="40" width="80" height="44" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="260" y="66" text-anchor="middle" font-size="13.5" fill="#334155">route</text>
+            <rect x="325" y="40" width="90" height="44" rx="8" fill="#eef2ff" stroke="#6366f1"/><text x="370" y="66" text-anchor="middle" font-size="13.5" fill="#3730a3">classify</text>
+            <rect x="440" y="40" width="80" height="44" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="480" y="66" text-anchor="middle" font-size="13.5" fill="#065f46">team</text>
+            <rect x="545" y="40" width="85" height="44" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="587" y="60" text-anchor="middle" font-size="13.5" fill="#334155">output</text><text x="587" y="74" text-anchor="middle" font-size="13.5" fill="#334155">guard</text>
+            <line x1="90" y1="62" x2="113" y2="62" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a64)"/>
+            <line x1="195" y1="62" x2="218" y2="62" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a64)"/>
+            <line x1="300" y1="62" x2="323" y2="62" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a64)"/>
+            <line x1="415" y1="62" x2="438" y2="62" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a64)"/>
+            <line x1="520" y1="62" x2="543" y2="62" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a64)"/>
+            <line x1="50" y1="84" x2="50" y2="128" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a64)"/>
+            <line x1="260" y1="84" x2="260" y2="128" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a64)"/>
+            <line x1="370" y1="84" x2="370" y2="128" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4,2" marker-end="url(#a64)"/>
+            <text x="50" y="146" text-anchor="middle" font-size="12.5" fill="#b45309">block</text>
+            <text x="260" y="146" text-anchor="middle" font-size="12.5" fill="#b45309">refuse, canned,</text>
+            <text x="260" y="160" text-anchor="middle" font-size="12.5" fill="#b45309">or fallback</text>
+            <text x="370" y="146" text-anchor="middle" font-size="12.5" fill="#b45309">block</text>
+            <text x="155" y="112" text-anchor="middle" font-size="12" fill="#475569">placeholders from here on</text>
+            <text x="320" y="196" text-anchor="middle" font-size="12.5" fill="#475569">cheapest first; each stage can stop the request and reply</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Why a wrapper -->
+    <section>
+      <h2><span class="eyebrow">Design choice</span>Why a wrapper, not rules inside each agent</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">One policy, one place</span>Rules scattered across five agents drift apart. A gateway states the policy once, and every path obeys it.</div>
+          <div class="callout"><span class="label">Agents stay simple</span>Each agent does its job; none carries compliance code. Adding a sixth agent adds no new compliance surface.</div>
+          <div class="callout"><span class="label">One audit trail</span>Every decision, with its stage and reason, lands in one log. An auditor reads one file, not five agents' prompts.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">What stays inside the agents</span>The class 5.6 (Reliability and failure modes) rails: step caps, call validation, untrusted-output labels. The gateway does not replace them; it adds the team-level layer.</div>
+      </div>
+    </section>
+
+    <!-- 7. Cost funnel -->
+    <section>
+      <h2><span class="eyebrow">Concept 1</span>Rules first, classifier second: the cost funnel</h2>
+      <div class="body">
+        <p style="text-align:center">$$\mathbb{E}[C] = c_{rules} + (1 - b)\, c_{clf}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(\mathbb{E}[C]\) is the expected checking cost per request. \(c_{rules}\) is the cost of the local checks, close to zero. \(b\) is the share of requests the local stages settle (blocked, refused, or answered with a canned reply). \(c_{clf}\) is one classifier call. Only the remaining \(1 - b\) pay for it.</div>
+          <div class="callout"><span class="label">Worked example (illustrative)</span>If local stages settle 40% of traffic, \(b = 0.4\), and the classifier runs on 60% of requests. At 10,000 requests a day that is 4,000 fewer model calls, and 4,000 fewer chances to hit a rate limit.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Order by cost and power -->
+    <section>
+      <h2><span class="eyebrow">Ordering the stages</span>Route before you classify</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">The build routes first and classifies only requests headed to the team. The refuse, canned, and fallback paths never reach a model, so a classifier call there buys nothing.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The rule</span>Spend the expensive check where the power is. The team can search, call tools, and write answers; a canned reply cannot do harm whatever the request says.</div>
+          <div class="callout"><span class="label">When to classify first instead</span>If every path can act (each route leads to an agent with tools), the classifier must see everything, so it moves ahead of the router. The order follows from what each path can do.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Safeguard -->
+    <section>
+      <h2><span class="eyebrow">A real classifier</span>A policy classifier on Groq</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.6fr; font-size:0.84em">
+          <div class="gt-head">Property</div><div class="gt-head">What it means for the build</div>
+          <div class="gt-accent">Bring your own policy</div><div><code>openai/gpt-oss-safeguard-20b</code> reads a policy you write in plain language and classifies content against it. No retraining when the policy changes.</div>
+          <div class="gt-accent">Verdict with a reason</div><div>It returns a decision, a category, and a short rationale, so a block can be explained and audited.</div>
+          <div class="gt-accent">Cache-friendly</div><div>The policy goes first and the content last, so the policy prefix is reused on every call (class 6.3, Context engineering).</div>
+          <div class="gt-accent">Preview status</div><div>At time of writing it is a Groq preview model, which can be withdrawn at short notice. The build falls back to the default model with the same policy and records which model decided.</div>
+          <div class="gt-accent">Sees placeholders</div><div>The classifier is a third-party call too, so it only ever receives redacted text.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Writing a policy -->
+    <section>
+      <h2><span class="eyebrow">Write the policy</span>Four sections, about 400 to 600 tokens</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.64em; line-height:1.55; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">policy excerpt (example: a pharmacy assistant)</div>
+          <div><strong>## INSTRUCTIONS</strong> Classify one request to a pharmacy assistant. Return JSON: violation, category, rationale.</div>
+          <div><strong>## DEFINITIONS</strong> Diversion: obtaining a prescription drug without a valid prescription.</div>
+          <div><strong>## VIOLATES (1)</strong> Requests to get controlled drugs without a prescription (category "diversion").</div>
+          <div><strong>## SAFE (0)</strong> Questions about side effects, dosage on the label, or store hours.</div>
+          <div><strong>## EXAMPLES</strong> "Can I take ibuprofen with food?" gives {"violation": 0, ...}</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Definitions do the work</span>The model judges against your words. A vague term ("harmful") gives vague verdicts; a defined one ("diversion: ...") gives consistent ones.</div>
+          <div class="callout"><span class="label">Examples set the boundary</span>Include safe examples that look risky. They are what stops the classifier blocking legitimate questions.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11. Fail closed -->
+    <section>
+      <h2><span class="eyebrow">When the check itself fails</span>Fail closed or fail open</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Fail closed</span>If the verdict cannot be read, treat the request as a violation. Safer, but an outage blocks everyone. The build does this for unreadable verdicts.</div>
+          <div class="callout"><span class="label">Fail open</span>If the check is down, let the request through. Available, but an attacker who can break the check walks past it.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Decide per path, in advance</span>A path with tools fails closed; a read-only FAQ path might fail open. What matters is that you chose, wrote it down, and log every time it happens.</div>
+      </div>
+    </section>
+
+    <!-- 12. Two errors -->
+    <section>
+      <h2><span class="eyebrow">Measuring a guard</span>Two errors, two rates</h2>
+      <div class="body">
+        <p style="text-align:center">$$\text{block rate} = \frac{\text{unsafe requests stopped}}{\text{all unsafe requests}} \qquad \text{false-block rate} = \frac{\text{safe requests stopped}}{\text{all safe requests}}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">A miss</span>An unsafe request gets through. The block rate falls. The cost is whatever the team then does with it.</div>
+          <div class="callout"><span class="label">A false block</span>A legitimate user is refused. The false-block rate rises. The cost is lost trust, and users learning to rephrase around the guard.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Measure both, on a labeled set</span>A guard that blocks everything has a perfect block rate. Only the false-block rate shows it is useless. The build reports both.</div>
+      </div>
+    </section>
+
+    <!-- 13. Semantic routing -->
+    <section>
+      <h2><span class="eyebrow">Concept 2</span>Route by meaning, not keywords</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 2.2fr 1.2fr 1.2fr; font-size:0.84em">
+          <div class="gt-head">Request</div><div class="gt-head">Keyword rule says</div><div class="gt-head">Meaning says</div>
+          <div>"Can I write off my kid's braces?"</div><div>no keyword match</div><div class="gt-accent">tax question</div>
+          <div>"What did the doctor write in my brother's chart?"</div><div>"doctor" looks medical, routed to tax</div><div class="gt-accent">someone else's records</div>
+          <div>"Is a patient lift deductible?"</div><div>"patient" looks like records</div><div class="gt-accent">tax question</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The idea</span>Embed the request (class 4.4, Embeddings and vector databases) and compare it with each route's examples. Paraphrases land close together even when they share no words.</div>
+      </div>
+    </section>
+
+    <!-- 14. Centroid figure -->
+    <section>
+      <h2><span class="eyebrow">The mechanism</span>Each route is a centroid</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Write four to six example utterances per route, embed them, and average each route's vectors. That average, the centroid, stands for the route. A new request goes to the centroid it points at most closely.</p>
+            <div class="callout"><span class="label">Re-normalize the mean</span>The average of unit vectors is shorter than one. Divide it by its length again, or cosine scores stop being comparable.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="b64" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <circle cx="58" cy="62" r="5" fill="#16a34a"/><circle cx="98" cy="58" r="5" fill="#16a34a"/><circle cx="72" cy="100" r="5" fill="#16a34a"/>
+              <circle cx="76" cy="73" r="9" fill="none" stroke="#065f46" stroke-width="2"/><text x="78" y="40" text-anchor="middle" font-size="10" fill="#065f46">tax questions</text>
+              <circle cx="225" cy="64" r="5" fill="#6366f1"/><circle cx="256" cy="94" r="5" fill="#6366f1"/><circle cx="210" cy="100" r="5" fill="#6366f1"/>
+              <circle cx="232" cy="85" r="9" fill="none" stroke="#3730a3" stroke-width="2"/><text x="232" y="50" text-anchor="middle" font-size="10" fill="#3730a3">records</text>
+              <circle cx="150" cy="166" r="5" fill="#b45309"/><circle cx="176" cy="196" r="5" fill="#b45309"/><circle cx="128" cy="198" r="5" fill="#b45309"/>
+              <circle cx="152" cy="187" r="9" fill="none" stroke="#b45309" stroke-width="2"/><text x="192" y="186" font-size="10" fill="#b45309">account</text>
+              <rect x="105" y="92" width="12" height="12" fill="#172033"/><text x="125" y="118" font-size="10" fill="#172033">new request</text>
+              <line x1="104" y1="96" x2="87" y2="80" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#b64)"/>
+              <text x="150" y="20" text-anchor="middle" font-size="9.5" fill="#475569">dots: examples; rings: centroids (2D sketch)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Routing rule -->
+    <section>
+      <h2><span class="eyebrow">The rule</span>Nearest centroid, if it is near enough</h2>
+      <div class="body">
+        <p style="text-align:center">$$\text{route} = \begin{cases} \arg\max_r \cos(e_q, c_r) & \text{if } \max_r \cos(e_q, c_r) \ge \tau \\ \text{fallback} & \text{otherwise} \end{cases}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(e_q\) is the request's embedding. \(c_r\) is the centroid of route \(r\). \(\cos\) is cosine similarity, from \(-1\) to \(1\). \(\arg\max_r\) means "the route with the highest score". \(\tau\) (tau) is the lowest score we trust.</div>
+          <div class="callout"><span class="label">What the threshold buys</span>Without \(\tau\), every request goes somewhere, even "best pizza near me". With it, a request that is close to nothing gets a fallback reply instead of being forced into the nearest route.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Worked routing -->
+    <section>
+      <h2><span class="eyebrow">Worked example (illustrative)</span>Three requests, four routes, \(\tau = 0.45\)</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.3fr; font-size:0.8em">
+          <div class="gt-head">Request</div><div class="gt-head">tax</div><div class="gt-head">records</div><div class="gt-head">medical</div><div class="gt-head">account</div><div class="gt-head">Decision</div>
+          <div>"Can I write off my kid's braces?"</div><div class="gt-accent">0.62</div><div>0.18</div><div>0.41</div><div>0.12</div><div>tax (team)</div>
+          <div>"What is in my brother's patient file?"</div><div>0.21</div><div>0.44</div><div class="gt-accent">0.58</div><div>0.09</div><div>medical (refuse)</div>
+          <div>"Best pizza near me?"</div><div>0.14</div><div>0.06</div><div>0.08</div><div>0.11</div><div>0.14 &lt; 0.45: fallback</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Reading it</span>The braces question also scores 0.41 on medical, so it is not a clean call. A close runner-up is worth logging: it is where routing errors will come from. Scores here are illustrative, not measured.</div>
+      </div>
+    </section>
+
+    <!-- 17. Choosing tau -->
+    <section>
+      <h2><span class="eyebrow">Tuning</span>Choosing \(\tau\) from data, not by feel</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The procedure</span>Score a labeled set. Take the weakest best score among in-scope requests and the strongest among out-of-scope ones. If the first is higher, set \(\tau\) between them. The build's <code>--tune</code> flag does exactly this.</div>
+          <div class="callout"><span class="label">If they overlap</span>No threshold separates them. Moving \(\tau\) only trades misroutes for fallbacks. Fix the route examples instead: add paraphrases of the requests that scored low.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The trade-off</span>A high \(\tau\) sends more real questions to the fallback (users rephrase). A low \(\tau\) forces odd requests into a route (wrong answers). Which is worse depends on what the route can do.</div>
+      </div>
+    </section>
+
+    <!-- 18. PII redaction -->
+    <section>
+      <h2><span class="eyebrow">Concept 3</span>Redact PII with typed placeholders</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 20px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.72em; line-height:1.7; color:#1e293b">
+          <div><span style="color:#64748b">before </span>I'm Ana Ruiz, reach me at ana.r@mail.test or 646-555-0188 about my refund.</div>
+          <div><span style="color:#64748b">after&nbsp; </span>I'm <strong style="color:#0f766e">&lt;PERSON_1&gt;</strong>, reach me at <strong style="color:#0f766e">&lt;EMAIL_1&gt;</strong> or <strong style="color:#0f766e">&lt;PHONE_1&gt;</strong> about my refund.</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Why typed placeholders</span>The agent still knows what kind of thing was there ("the user gave a phone number") and can reason about it, without ever seeing the value. A blank or "[REDACTED]" loses that.</div>
+          <div class="callout"><span class="label">The vault stays home</span>The mapping from placeholder to value stays in the gateway's memory. It is never logged, traced, or sent to a model. Only the edge may restore a value, and only for the person it belongs to.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 19. Validators -->
+    <section>
+      <h2><span class="eyebrow">Precision through validation</span>A pattern finds candidates; a validator confirms</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Luhn check, worked</span>Take 7992 7398 713. From the right, keep one digit, double the next, and so on; a doubled digit above 9 loses 9. The digits become 3, 2, 7, 7, 9, 6, 7, 4, 9, 9, 7, which sum to 70. That is divisible by 10, so it passes. Change one digit and it fails. A random 16-digit order number fails nine times in ten.</div>
+          <div class="callout"><span class="label">Rules for US Social Security numbers</span>The 3-2-4 shape alone matches case numbers and part codes. Some ranges are never issued: area 000, 666, or 900 to 999; group 00; serial 0000. Rejecting those cuts false alarms at no cost in recall.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Order matters too</span>Check the longest patterns first (cards before phone numbers) and never let two spans overlap, or one number gets masked twice with two different labels.</div>
+      </div>
+    </section>
+
+    <!-- 20. Precision and recall -->
+    <section>
+      <h2><span class="eyebrow">Measuring redaction</span>Precision, recall, and which one matters</h2>
+      <div class="body">
+        <p style="text-align:center">$$\text{precision} = \frac{TP}{TP + FP} \qquad \text{recall} = \frac{TP}{TP + FN}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(TP\): real PII spans that were masked. \(FP\): harmless spans masked by mistake. \(FN\): real PII that was missed. Precision asks "of what we masked, how much was PII?" Recall asks "of the PII, how much did we mask?"</div>
+          <div class="callout"><span class="label">Worked example (illustrative)</span>A text has 10 PII spans. The redactor masks 12 spans, 9 of them real. Precision is \(9/12 = 0.75\); recall is \(9/10 = 0.9\). The one missed span is the one that leaks into the log.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 20b. Recall first -->
+    <section>
+      <h2><span class="eyebrow">Which error to fear</span>For redaction, recall comes first</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">A false positive</span>An order number gets masked as a card. The agent sees <code>&lt;CARD_1&gt;</code> where a harmless number was. Mildly annoying, and easy to spot in testing.</div>
+          <div class="callout"><span class="label">A false negative</span>A real Social Security number is missed. It is now in the log file, the trace store, and the model provider's request history, and it cannot be recalled from any of them.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The tuning order</span>Write patterns broad enough to catch every real case, accepting some false alarms. Then add validators (Luhn, never-issued ranges) to remove false alarms without losing real ones. Measure both on a labeled set after every change.</div>
+      </div>
+    </section>
+
+    <!-- 21. Names and Presidio -->
+    <section>
+      <h2><span class="eyebrow">The hard case</span>Names need a model; rules need cues</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What rules can do</span>Find a capitalized name right after a cue ("my neighbor", "patient", "my name is", "Dr."). That catches some names and misses the rest: "Thanks, Priya" has no cue.</div>
+          <div class="callout"><span class="label">What production uses</span>Microsoft Presidio combines pattern recognizers, validators, context words, and a named-entity model such as spaCy. It is the same detect, validate, replace idea, with a model for the cases rules cannot see.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">In the build</span>One request ends with a name and no cue. The redactor misses it, recall drops below one, and the compliance check finds that name in the audit log. The leak is deliberate. It shows exactly what rule-based redaction cannot do.</div>
+      </div>
+    </section>
+
+    <!-- 22. GDPR -->
+    <section>
+      <h2><span class="eyebrow">Concept 4: intuition, not legal advice</span>GDPR in four ideas</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.1fr 2fr 2fr; font-size:0.84em">
+          <div class="gt-head">Idea</div><div class="gt-head">In plain words</div><div class="gt-head">What it means for an agent team</div>
+          <div class="gt-accent">Data minimization</div><div>collect and keep only what the purpose needs</div><div>redact before logs and traces; do not store full chats by default</div>
+          <div class="gt-accent">Purpose limitation</div><div>use data only for the reason it was collected</div><div>a support chat is not training data unless users agreed to that</div>
+          <div class="gt-accent">Lawful basis</div><div>a valid reason to process, such as consent or a contract</div><div>know which basis covers each data flow, including the model provider</div>
+          <div class="gt-accent">Right to erasure</div><div>people can ask for their data to be deleted</div><div>you must be able to find and delete it in logs, traces, and vector stores</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Note</span>This is the EU's General Data Protection Regulation, simplified. Obligations depend on where you and your users are; ask a qualified person for real decisions.</div>
+      </div>
+    </section>
+
+    <!-- 23. HIPAA -->
+    <section>
+      <h2><span class="eyebrow">Health data</span>HIPAA intuition</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Protected health information</span>Health details tied to an identifiable person: a diagnosis plus a name, a visit date plus a record number. On its own, "braces are deductible" is not PHI.</div>
+          <div class="callout"><span class="label">Business associate agreement</span>A US covered entity, such as a clinic, may share PHI with a vendor (including a model provider) only under a signed agreement that binds the vendor to protect it.</div>
+          <div class="callout"><span class="label">Minimum necessary</span>Use and share only the PHI a task needs. That is redaction again, required by rule.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why the build refuses medical records</span>A tax assistant has no agreement and no need. The router sends any request for someone's medical records to a refusal, before any agent or model sees it.</div>
+      </div>
+    </section>
+
+    <!-- 24. Data flow figure -->
+    <section>
+      <h2><span class="eyebrow">Follow the data</span>Where personal data can leak in this system</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">Every arrow out of the gateway is a copy of the request leaving your control: to a model provider, a log file, a tracing service, or a vector store. Redaction sits before all of them.</p>
+            <div class="callout"><span class="label">The test</span>For each destination, ask: if this were breached tomorrow, whose data would be in it? The answer should be "nobody's".</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 230" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="c64" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <rect x="10" y="95" width="60" height="36" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="40" y="117" text-anchor="middle" font-size="10" fill="#334155">user</text>
+              <rect x="100" y="90" width="80" height="46" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="140" y="110" text-anchor="middle" font-size="10" fill="#065f46">gateway</text><text x="140" y="124" text-anchor="middle" font-size="9" fill="#065f46">redacts here</text>
+              <rect x="215" y="10" width="78" height="32" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="254" y="30" text-anchor="middle" font-size="9.5" fill="#3730a3">model provider</text>
+              <rect x="215" y="68" width="78" height="32" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="254" y="88" text-anchor="middle" font-size="9.5" fill="#3730a3">logs</text>
+              <rect x="215" y="126" width="78" height="32" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="254" y="139" text-anchor="middle" font-size="9.5" fill="#3730a3">traces</text><text x="254" y="151" text-anchor="middle" font-size="8.5" fill="#3730a3">(third party)</text>
+              <rect x="215" y="184" width="78" height="32" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="254" y="204" text-anchor="middle" font-size="9.5" fill="#3730a3">vector store</text>
+              <line x1="70" y1="113" x2="98" y2="113" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#c64)"/>
+              <line x1="180" y1="100" x2="213" y2="28" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#c64)"/>
+              <line x1="180" y1="108" x2="213" y2="84" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#c64)"/>
+              <line x1="180" y1="120" x2="213" y2="140" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#c64)"/>
+              <line x1="180" y1="128" x2="213" y2="198" stroke="#3f4a63" stroke-width="1.2" marker-end="url(#c64)"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 25. Redact before tracing -->
+    <section>
+      <h2><span class="eyebrow">The ordering rule</span>Redact before logging, tracing, or calling a model</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The common mistake</span>Log the raw request "for debugging", then redact before calling the model. The model is clean, and the log holds every SSN users ever typed.</div>
+          <div class="callout"><span class="label">The build's check</span>After the run, the audit log is searched for every labeled raw value. A clean result is evidence, not hope. A hit names exactly which span the redactor missed.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Coming up</span>Class 6.6 (Observability and tracing) sends traces to LangSmith, a third party. The same rule applies: span inputs pass through the redactor before they are recorded.</div>
+      </div>
+    </section>
+
+    <!-- 26. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"Compliance is someone else's job"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">Legal can tell you what is required. Only the architecture decides whether it is possible.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Bolted on later</span>Raw requests are already in logs, traces, and a vector store across three services. Erasure means a search through all of them, and some cannot delete a single record.</div>
+          <div class="callout"><span class="label">Designed in</span>One gateway redacts before every exit, logs only placeholders, and keeps the vault in memory. Erasure is mostly done before anyone asks.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 27. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>A gateway, scored on labeled requests</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.62em; line-height:1.6; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">console output (illustrative)</div>
+          <div>r03&nbsp; answer&nbsp;&nbsp;&nbsp; team&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tax_research (0.58)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; EMAIL,SSN</div>
+          <div>r06&nbsp; blocked&nbsp;&nbsp; classifier&nbsp; tax_research (0.51)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#64748b">evasion</span></div>
+          <div>r08&nbsp; blocked&nbsp;&nbsp; rules&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#64748b">prompt_attack</span></div>
+          <div>r10&nbsp; refused&nbsp;&nbsp; router&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; medical_records (0.67)&nbsp;&nbsp; PERSON</div>
+          <div style="margin-top:4px">block rate 100%&nbsp;&nbsp; false-block rate 0%&nbsp;&nbsp; PII precision 1.00&nbsp; recall 0.89</div>
+          <div>COMPLIANCE raw PII values in audit log: 1 <strong style="color:#b45309">(LEAK: a name with no cue)</strong></div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What it shows</span>Each request stops at the cheapest stage that can decide it, and the classifier runs only on team-bound traffic. The one leak is the deliberate uncued name.</div>
+          <div class="callout"><span class="label">What ships</span><code>gateway.py</code>, <code>pii.py</code>, <code>router.py</code>, <code>policy.py</code>, the unchanged class 6.1 (Multi-agent architectures) team, and 16 labeled requests. <code>--tune</code> suggests \(\tau\) from your scores.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 28. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Wrap a team in a gateway, ordering stages by cost and power.</li>
+              <li>Write a policy and classify against it, failing closed.</li>
+              <li>Route by meaning with centroids and a tuned threshold.</li>
+              <li>Redact PII with validators and measure precision and recall.</li>
+              <li>Trace where data flows, and redact before every exit.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment (movies)</div>
+            <p class="stmt" style="margin-top:6px">Block requests for pirated copies (torrent and magnet links, illegal downloads) before they reach a movie team, without blocking innocent requests that happen to share the words. Report the block rate and false-block rate on a labeled set.</p>
+            <div class="callout"><span class="label">Next, class 6.5 (AI security)</span>Attackers who never type a bad request: poison a document, ride a handoff, and turn the team's own tools against it.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
