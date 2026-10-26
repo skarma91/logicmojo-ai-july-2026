@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+embeddings.npy
+data/corpus.jsonl
+data/eval.jsonl
+collection.log
+data/long_term_memory.jsonl
