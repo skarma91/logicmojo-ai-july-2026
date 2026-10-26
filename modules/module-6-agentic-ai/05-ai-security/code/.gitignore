@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+logs/
+data/embeddings.npy
+data/ids.json
+outbox/
