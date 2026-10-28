@@ -1,0 +1,8 @@
+{"task_id": "m1", "steps": [], "tool_calls": [], "answer": "Inception was directed by Christopher Nolan."}
+{"task_id": "m2", "steps": [], "tool_calls": [], "answer": "Parasite was directed by Bong Joon-ho."}
+{"task_id": "m3", "steps": ["recommender", "recommender"], "tool_calls": [{"tool": "recommender", "args": {"title": "Coco"}}, {"tool": "recommender", "args": {"title": "Coco"}}], "answer": "Try Finding Nemo, Spirited Away, or Toy Story."}
+{"task_id": "m4", "steps": ["plot_search"], "tool_calls": [{"tool": "plot_search", "args": {"query": "thief who enters dreams"}}], "answer": "That is Inception, directed by Christopher Nolan."}
+{"task_id": "m5", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "The Matrix"}}], "answer": "The Matrix came out in 1999."}
+{"task_id": "m6", "steps": ["recommender"], "tool_calls": [{"tool": "recommender", "args": {"title": "Inception"}}], "answer": "Try Interstellar, The Dark Knight, or The Matrix."}
+{"task_id": "m7", "steps": [], "tool_calls": [], "answer": "The Italian Job was directed by F. Gary Gray."}
+{"task_id": "m8", "steps": [], "tool_calls": [], "answer": "Spirited Away was directed by Hayao Miyazaki."}
