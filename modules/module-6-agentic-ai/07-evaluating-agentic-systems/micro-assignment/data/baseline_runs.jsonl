@@ -1,8 +1,0 @@
-{"task_id": "m1", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "Inception"}}], "answer": "Inception (2010) was directed by Christopher Nolan."}
-{"task_id": "m2", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "Parasite"}}], "answer": "Parasite (2019) was directed by Bong Joon-ho."}
-{"task_id": "m3", "steps": ["recommender"], "tool_calls": [{"tool": "recommender", "args": {"title": "Coco"}}], "answer": "Try Finding Nemo, Spirited Away, or Toy Story."}
-{"task_id": "m4", "steps": ["plot_search", "facts"], "tool_calls": [{"tool": "plot_search", "args": {"query": "thief who enters dreams"}}, {"tool": "facts", "args": {"title": "Inception"}}], "answer": "That is Inception (2010), directed by Christopher Nolan."}
-{"task_id": "m5", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "The Matrix"}}], "answer": "The Matrix came out in 1999."}
-{"task_id": "m6", "steps": ["recommender"], "tool_calls": [{"tool": "recommender", "args": {"title": "Inception"}}], "answer": "Try Interstellar, The Dark Knight, or The Matrix."}
-{"task_id": "m7", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "The Italian Job"}}], "answer": "Two films share that title: the 1969 film by Peter Collinson and the 2003 remake by F. Gary Gray."}
-{"task_id": "m8", "steps": ["facts"], "tool_calls": [{"tool": "facts", "args": {"title": "Spirited Away"}}], "answer": "Spirited Away (2001) was directed by Hayao Miyazaki."}

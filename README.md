@@ -69,7 +69,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [6.4 Guardrails, routing, compliance](modules/module-6-agentic-ai/04-guardrails-routing-compliance/)
 - [6.5 AI security](modules/module-6-agentic-ai/05-ai-security/)
 - [6.6 Observability and tracing](modules/module-6-agentic-ai/06-observability-and-tracing/)
-- [6.7 Evaluating agentic systems](modules/module-6-agentic-ai/07-evaluating-agentic-systems/)
+- 6.7 Evaluating agentic systems (upcoming)
 - 6.8 Deployment (upcoming)
 - Module 6 milestone assignment (upcoming)
 - Suggested reading (upcoming)

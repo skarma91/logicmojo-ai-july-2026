@@ -1,6 +1,0 @@
-__pycache__/
-*.pyc
-data/embeddings.npy
-data/ids.json
-traces/eval_*.jsonl
-results/

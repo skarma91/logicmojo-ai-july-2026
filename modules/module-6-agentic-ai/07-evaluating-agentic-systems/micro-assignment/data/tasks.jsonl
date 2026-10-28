@@ -1,8 +1,0 @@
-{"id": "m1", "question": "Who directed Inception?", "reference": ["facts"], "success": {"mentions_all": ["Christopher Nolan"]}}
-{"id": "m2", "question": "Who directed Parasite?", "reference": ["facts"], "success": {"mentions_all": ["Bong Joon-ho"]}}
-{"id": "m3", "question": "Suggest movies like Coco.", "reference": ["recommender"], "success": {"mentions_all": ["Finding Nemo"]}}
-{"id": "m4", "question": "Which movie is about a thief who enters dreams, and who directed it?", "reference": ["plot_search", "facts"], "success": {"mentions_all": ["Inception", "Christopher Nolan"]}}
-{"id": "m5", "question": "What year did The Matrix come out?", "reference": ["facts"], "success": {"mentions_all": ["1999"]}}
-{"id": "m6", "question": "Recommend films like Inception.", "reference": ["recommender"], "success": {"mentions_all": ["Interstellar"]}}
-{"id": "m7", "question": "Who directed The Italian Job?", "reference": ["facts"], "success": {"mentions_all": ["Peter Collinson", "F. Gary Gray"]}}
-{"id": "m8", "question": "Who directed Spirited Away?", "reference": ["facts"], "success": {"mentions_all": ["Hayao Miyazaki"]}}
