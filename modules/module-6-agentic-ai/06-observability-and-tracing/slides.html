@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.6 - Observability and tracing</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.6</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.6</span>
+      <h1>Print-debugging fails for agents</h1>
+      <p class="lead">A team run is dozens of model calls, tool calls, and agent turns, some running at the same time, some looping. When it is slow, expensive, or wrong, print statements cannot tell you which step is to blame. A trace can.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>From a pile of logs to an answer</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Runs, traces, spans<span class="step-note">The tree a run really is.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Time and cost per span<span class="step-note">Self time, critical path, cost share.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Structured feedback<span class="step-note">Scores attached to runs.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">LangSmith in practice<span class="step-note">Setup, reading a trace, privacy.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>Logging from class 4.1 (Working with LLMs) and class 5.6 (Reliability and failure modes); the parallel team from class 6.2 (Orchestration); redaction from class 6.4 (Guardrails, routing, and compliance).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>Traces and feedback become the raw material of class 6.7 (Evaluating agentic systems).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Why print fails -->
+    <section>
+      <h2><span class="eyebrow">The problem</span>What print statements look like for a team</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.66em; line-height:1.6; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">a support team's log (example)</div>
+          <div>calling model... </div>
+          <div>searching help articles for "refund window"</div>
+          <div>calling model...</div>
+          <div>got 3 results</div>
+          <div>model replied (412 tokens)</div>
+          <div>ERROR: billing lookup timed out</div>
+          <div>model replied (1,903 tokens)</div>
+        </div>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Who said what?</span>Two agents ran in parallel, so their lines interleave. Which model call made 1,903 tokens?</div>
+          <div class="callout"><span class="label">What caused what?</span>Did the timeout break the answer, or did the team recover? The log has no parent and child.</div>
+          <div class="callout"><span class="label">Where did the time go?</span>No durations, and no way to tell which waits overlapped.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Definitions -->
+    <section>
+      <h2><span class="eyebrow">Concept 1</span>Runs, traces, and spans</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.4fr 2fr; font-size:0.86em">
+          <div class="gt-head">Term</div><div class="gt-head">What it is</div><div class="gt-head">In a team</div>
+          <div class="gt-accent">Trace</div><div>one end-to-end execution: everything that happened for one request</div><div>one user question, start to answer</div>
+          <div class="gt-accent">Span (run)</div><div>one timed unit of work inside a trace, with inputs, outputs, and status; LangSmith calls it a run</div><div>an agent turn, a model call, a tool call, a retrieval</div>
+          <div class="gt-accent">Parent and child</div><div>a span that starts work records it as its child, so spans form a tree</div><div>the billing agent's turn contains its model call and its tool call</div>
+          <div class="gt-accent">Root</div><div>the span with no parent; its duration is the request's wall time</div><div>the whole team run</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The shift</span>A log is a list of lines. A trace is a tree of timed, attributed work. Every question above becomes a walk over that tree.</div>
+      </div>
+    </section>
+
+    <!-- 5. Tree figure -->
+    <section>
+      <h2><span class="eyebrow">The shape</span>A trace is a tree</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">The root is the request. Its children are agent turns, and theirs are the model and tool calls each turn made. The tree answers "who said what" and "what caused what" by construction.</p>
+            <div class="callout"><span class="label">Parallel branches stay separate</span>The two agents ran at the same time, but each call sits under the agent that made it. Interleaving is gone.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 230" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <rect x="100" y="10" width="100" height="30" rx="8" fill="#f1f5f9" stroke="#94a3b8"/><text x="150" y="30" text-anchor="middle" font-size="11" fill="#334155">support run</text>
+              <rect x="20" y="85" width="105" height="30" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="72" y="105" text-anchor="middle" font-size="10.5" fill="#065f46">help agent</text>
+              <rect x="175" y="85" width="105" height="30" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="227" y="105" text-anchor="middle" font-size="10.5" fill="#065f46">billing agent</text>
+              <rect x="10" y="165" width="60" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="40" y="184" text-anchor="middle" font-size="10" fill="#3730a3">model</text>
+              <rect x="80" y="165" width="60" height="30" rx="7" fill="#fef3c7" stroke="#b45309"/><text x="110" y="184" text-anchor="middle" font-size="10" fill="#92400e">search</text>
+              <rect x="165" y="165" width="60" height="30" rx="7" fill="#eef2ff" stroke="#6366f1"/><text x="195" y="184" text-anchor="middle" font-size="10" fill="#3730a3">model</text>
+              <rect x="235" y="165" width="60" height="30" rx="7" fill="#fee2e2" stroke="#dc2626"/><text x="265" y="184" text-anchor="middle" font-size="10" fill="#7f1d1d">lookup</text>
+              <line x1="135" y1="40" x2="80" y2="84" stroke="#3f4a63" stroke-width="1.2"/>
+              <line x1="165" y1="40" x2="220" y2="84" stroke="#3f4a63" stroke-width="1.2"/>
+              <line x1="60" y1="115" x2="42" y2="164" stroke="#3f4a63" stroke-width="1.2"/>
+              <line x1="85" y1="115" x2="108" y2="164" stroke="#3f4a63" stroke-width="1.2"/>
+              <line x1="215" y1="115" x2="197" y2="164" stroke="#3f4a63" stroke-width="1.2"/>
+              <line x1="240" y1="115" x2="263" y2="164" stroke="#3f4a63" stroke-width="1.2"/>
+              <text x="265" y="212" text-anchor="middle" font-size="9.5" fill="#b91c1c">timed out</text>
+              <text x="150" y="228" text-anchor="middle" font-size="9.5" fill="#475569">blue: model calls; amber: retrieval; red: an error span</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. What a span records -->
+    <section>
+      <h2><span class="eyebrow">Inside a span</span>What every span should record</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2.6fr; font-size:0.86em">
+          <div class="gt-head">Field</div><div class="gt-head">Why you need it</div>
+          <div class="gt-accent">id, parent id, trace id</div><div>rebuild the tree, and group spans into one request</div>
+          <div class="gt-accent">name and kind</div><div>"llm:billing" of kind llm; "lookup" of kind tool. Search and aggregate by them.</div>
+          <div class="gt-accent">start and end time</div><div>duration, overlap between parallel branches, the critical path</div>
+          <div class="gt-accent">inputs and outputs</div><div>what the step actually saw and produced: redacted and truncated</div>
+          <div class="gt-accent">tokens and cost</div><div>for model spans: prompt, completion, and cached tokens, and the price they imply</div>
+          <div class="gt-accent">error</div><div>the exception or failure message; a span can fail while the run recovers</div>
+          <div class="gt-accent">metadata</div><div>model name, hop number, user tier, prompt version: whatever you will want to filter by</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Span kinds -->
+    <section>
+      <h2><span class="eyebrow">Conventions</span>Span kinds and names that stay useful</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Kinds</span>LangSmith's run types are a good default: <code>chain</code> for a run or an agent turn, <code>llm</code> for a model call, <code>tool</code> for a tool call, <code>retriever</code> for a search. Kinds let you ask "how much time went to tools?" in one filter.</div>
+          <div class="callout"><span class="label">Names</span>Stable and low-cardinality: <code>llm:billing</code>, not <code>llm call at 14:02:11</code>. Put the variable part (question, hop, focus) in inputs or metadata. Stable names are what make "cost share by span name" possible.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Instrument from outside</span>The build wraps <code>llm.chat</code>, the retriever, the MCP bridge, and each graph node. The team's own code carries no tracing calls, the same idea as the class 6.4 (Guardrails, routing, and compliance) gateway.</div>
+      </div>
+    </section>
+
+    <!-- 8. Self time -->
+    <section>
+      <h2><span class="eyebrow">Concept 2</span>Total time and self time</h2>
+      <div class="body">
+        <p style="text-align:center">$$T_{self}(i) = T(i) - \Big|\bigcup_{c \,\in\, \text{children}(i)} [\,s_c, e_c\,]\Big|$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(T(i)\) is span \(i\)'s total duration. \([s_c, e_c]\) is child \(c\)'s interval, from start to end. \(\bigcup\) merges the children's intervals, and \(|\cdot|\) is the total length of the merged result. Self time is the part of the span not spent waiting on a child.</div>
+          <div class="callout"><span class="label">Why merge first</span>Two children that ran at the same time cover the same seconds once, not twice. Subtracting their durations separately gives a negative self time. Merge the overlap, then subtract.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Critical path figure -->
+    <section>
+      <h2><span class="eyebrow">Wall time</span>The critical path, not the sum</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">With parallel branches, the request takes as long as its longest chain of dependent steps. That chain is the critical path. Speeding up anything off it does not make the request faster.</p>
+            <div class="callout"><span class="label">In the figure (illustrative)</span>The search takes 0.6 s while billing takes 1.8 s in parallel. Halving the search saves nothing; cutting billing by 1 s saves 1 s.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <line x1="80" y1="170" x2="290" y2="170" stroke="#94a3b8" stroke-width="1"/>
+              <text x="80" y="186" font-size="9" fill="#475569">0 s</text><text x="185" y="186" font-size="9" fill="#475569">2 s</text><text x="275" y="186" font-size="9" fill="#475569">4 s</text>
+              <text x="8" y="34" font-size="10" fill="#334155">triage</text>
+              <rect x="80" y="22" width="52" height="16" rx="3" fill="#6366f1"/>
+              <text x="8" y="66" font-size="10" fill="#334155">search</text>
+              <rect x="132" y="54" width="31" height="16" rx="3" fill="#cbd5e1"/>
+              <text x="8" y="98" font-size="10" fill="#334155">billing</text>
+              <rect x="132" y="86" width="94" height="16" rx="3" fill="#6366f1"/>
+              <text x="8" y="130" font-size="10" fill="#334155">writer</text>
+              <rect x="226" y="118" width="62" height="16" rx="3" fill="#6366f1"/>
+              <text x="185" y="156" text-anchor="middle" font-size="9.5" fill="#3730a3">blue: on the critical path</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Finding the critical path -->
+    <section>
+      <h2><span class="eyebrow">The algorithm</span>Walking back from the last finisher</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The walk</span>Among a span's children, start with the one that finished last. Step back to the child that finished last before it started: that is what it was waiting for. Repeat until nothing ended earlier, then do the same inside each chosen child.</div>
+          <div class="callout"><span class="label">What it gives you</span>The ordered list of spans that set the wall time. The build prints it next to the sum of all leaf spans; when branches overlap, the sum is larger than the wall time, and only the path matters for latency.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">A caveat</span>The walk infers waiting from timestamps. It is right for the fork and join shapes in this module. Systems with queues or locks need explicit dependency links between spans.</div>
+      </div>
+    </section>
+
+    <!-- 11. Cost share -->
+    <section>
+      <h2><span class="eyebrow">Where the money goes</span>Share of cost per span</h2>
+      <div class="body">
+        <p style="text-align:center">$$s_i = \frac{c_i}{\sum_j c_j}$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(c_i\) is the cost of span \(i\), from its tokens and the model's prices (cached input at the cached price). The sum runs over every span in the run. \(s_i\) is span \(i\)'s fraction of the total; the shares add up to 1.</div>
+          <div class="callout"><span class="label">Worked example (illustrative)</span>A run costs 0.40 cents: the billing agent's two calls 0.26, the writer 0.09, triage 0.05. Billing's share is \(0.26 / 0.40 = 65\%\). Halve the writer's cost and the run gets 11% cheaper; halve billing's and it gets 33% cheaper.</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">Class 5.7 (Assemble a single agent) showed that agent runs are expensive; the largest share names the exact span where tuning pays.</p>
+      </div>
+    </section>
+
+    <!-- 12. Slowest vs costliest -->
+    <section>
+      <h2><span class="eyebrow">Two bottlenecks</span>The slowest span is rarely the costliest</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Slowest: a latency fix</span>Often a tool: a slow lookup, a cold service, a retry wait. Fix it with a timeout, a cache, or by moving it off the critical path into a parallel branch.</div>
+          <div class="callout"><span class="label">Costliest: a token fix</span>Almost always a model call with a large prompt, usually late in a loop where context has piled up. Fix it with scoped context and compressed handoffs from class 6.3 (Context engineering), or a smaller model.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Rank by the right measure</span>Rank latency by self time on the critical path. Rank cost by share. A span that is both slow and costly, on the critical path, is the first thing to fix.</div>
+      </div>
+    </section>
+
+    <!-- 13. Errors and retries -->
+    <section>
+      <h2><span class="eyebrow">Failures in a trace</span>Errors, retries, and loops that cannot win</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">A failed span</span>A span can fail while the run recovers (the model reads the error and tries another tool). The trace keeps both facts: the error, and what happened next.</div>
+          <div class="callout"><span class="label">The repeated identical error</span>The same tool, the same arguments, the same error, three times. Nothing changed between attempts, so nothing could succeed. In a trace this pattern is visible at a glance.</div>
+          <div class="callout"><span class="label">Growing cost per retry</span>Each retry carries the history of the last, so model spans get more expensive as the loop goes on. The micro-assignment measures exactly this.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Symptom versus cause</span>The root's error ("hop cap reached") is the symptom. The first failed child is the cause. Read failures from the earliest one, not from the top.</div>
+      </div>
+    </section>
+
+    <!-- 14. Feedback -->
+    <section>
+      <h2><span class="eyebrow">Concept 3</span>Structured feedback: a key, a score, a comment</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.72em; line-height:1.6; color:#1e293b">
+          <div>run 7f2c... &nbsp; key=<strong>resolved_without_handoff</strong> &nbsp; score=<strong>0</strong> &nbsp; comment="customer asked for a human"</div>
+          <div>run 7f2c... &nbsp; key=<strong>cites_policy</strong> &nbsp; score=<strong>1</strong> &nbsp; comment="quotes refund policy section 3"</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Attached to the run</span>Feedback is stored with the trace it judges, so a low score leads straight to the spans that produced it. In LangSmith that is one call: <code>create_feedback(run_id, key, score, comment)</code>.</div>
+          <div class="callout"><span class="label">Keys are questions</span>A good key is one yes-or-no question you will ask of many runs. Then scores can be averaged, compared between versions, and charted over time.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Feedback sources -->
+    <section>
+      <h2><span class="eyebrow">Where scores come from</span>Three sources of feedback</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2fr 1.6fr; font-size:0.86em">
+          <div class="gt-head">Source</div><div class="gt-head">Example</div><div class="gt-head">Strength and weakness</div>
+          <div class="gt-accent">Users</div><div>a thumbs up or down, or "this solved my problem"</div><div>real, but sparse and noisy</div>
+          <div class="gt-accent">Exact checks</div><div>cites a known source; stays under the word limit</div><div>free and reliable, but narrow</div>
+          <div class="gt-accent">Model judges</div><div>"is every claim supported by the notes?"</div><div>broad, but needs its own checking</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Next class</span>Feedback on many runs is an evaluation. Class 6.7 (Evaluating agentic systems) turns these scores into datasets, metrics, and confidence intervals. The build records an exact-check score on every run to start that habit.</div>
+      </div>
+    </section>
+
+    <!-- 16. LangSmith setup -->
+    <section>
+      <h2><span class="eyebrow">Concept 4</span>Setting up LangSmith</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Four steps</div>
+            <ul class="tight">
+              <li>Sign up at smith.langchain.com with Google, GitHub, or email. No credit card for the free plan.</li>
+              <li>Settings, then API Keys, then Create API Key. Copy it once.</li>
+              <li>Add the variables to <code>.env</code>.</li>
+              <li>Run the build, then open Tracing and choose the project.</li>
+            </ul>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:12px 18px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.7em; line-height:1.8; color:#1e293b">
+            <div>LANGSMITH_TRACING=true</div>
+            <div>LANGSMITH_API_KEY=&lt;your key&gt;</div>
+            <div>LANGSMITH_PROJECT=genai-course-6-6</div>
+            <div style="color:#64748b"># outside the US region only:</div>
+            <div>LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com</div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The region trap</span>A non-US account without <code>LANGSMITH_ENDPOINT</code> fails to authenticate, and the error does not say "wrong region". If traces never appear, check this first.</div>
+      </div>
+    </section>
+
+    <!-- 17. Auto vs custom -->
+    <section>
+      <h2><span class="eyebrow">What gets traced</span>Automatic for the graph, explicit for your code</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Automatic</span>Once <code>LANGSMITH_TRACING=true</code> is set, LangGraph and LangChain report their own steps: graph nodes, chains, and calls made through their model wrappers.</div>
+          <div class="callout"><span class="label">Explicit</span>Calls that bypass those wrappers (our <code>llm.py</code> talks to Groq directly) and plain Python functions need spans of their own: the <code>@traceable</code> decorator, or the <code>trace()</code> context manager the build uses.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Both nest together</span>LangSmith tracks the current span in a context variable, so a span you open inside a LangGraph node appears under that node, even across parallel branches.</div>
+      </div>
+    </section>
+
+    <!-- 18. Reading a trace -->
+    <section>
+      <h2><span class="eyebrow">A routine</span>Reading a trace in four moves</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Start at the root<span class="step-note">Outcome, wall time, total tokens, feedback.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Find the first error<span class="step-note">The earliest failed span is the cause.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Follow the critical path<span class="step-note">Where the time actually went.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Open the inputs<span class="step-note">What did that step really see?</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">The question each move answers</div>
+            <div class="pill"><span class="pill-tag">Root</span>Is this run worth investigating at all?</div>
+            <div class="pill"><span class="pill-tag">Error</span>Did it fail, or recover?</div>
+            <div class="pill"><span class="pill-tag">Path</span>Which step to speed up?</div>
+            <div class="pill"><span class="pill-tag">Inputs</span>Was it the model, or what we gave it?</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 19. Redact first -->
+    <section>
+      <h2><span class="eyebrow">Privacy</span>Traces leave your machine: redact first</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What a trace contains</span>Every prompt, every retrieved passage, every answer. Sent to LangSmith, that is a third party holding a copy of your users' requests, which is exactly the data flow class 6.4 (Guardrails, routing, and compliance) mapped.</div>
+          <div class="callout"><span class="label">What the build does</span>Every input and output passes through the redactor from class 6.4 (Guardrails, routing, and compliance) before it is recorded, locally or remotely, then is truncated to 600 characters. A trace shows <code>&lt;EMAIL_1&gt;</code>, never the address.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Also consider</span>Who on the team can open traces, how long they are kept, and whether a user's erasure request reaches the trace store too.</div>
+      </div>
+    </section>
+
+    <!-- 20. Sampling and retention -->
+    <section>
+      <h2><span class="eyebrow">In production</span>Volume, sampling, and retention</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Volume</span>One team request can produce 30 or more spans. At real traffic, tracing everything costs storage and money, and may exceed a plan's trace allowance.</div>
+          <div class="callout"><span class="label">Sample, but keep failures</span>Trace a fraction of successful runs and every run that errors or scores badly. The interesting traces are the rare ones.</div>
+          <div class="callout"><span class="label">Retention</span>On LangSmith's free plan, traces are kept 14 days at time of writing. Export the ones you need, for example as evaluation examples.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 21. Pre-baked -->
+    <section>
+      <h2><span class="eyebrow">For class</span>The pre-baked trace</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Why it exists</span>A live demo depends on the network, a key, and a rate limit all cooperating. <code>traces/sample_trace.jsonl</code> lets the analysis run anywhere, offline, with no key.</div>
+          <div class="callout"><span class="label">What it is, and what it is not</span>It was recorded with a scripted model and simulated latency at authoring time, and every root span says so in its metadata. Its timings and tokens are illustrative. Replace it with a trace from a real run before teaching.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 22. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>Trace the team, find the bottleneck, score the run</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.6em; line-height:1.6; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">console output (illustrative, from the pre-baked trace)</div>
+          <div>&nbsp;&nbsp;researcher[contribution limits]&nbsp;&nbsp; chain&nbsp;&nbsp; total=1.69s</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;mcp:tax_glossary&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tool&nbsp;&nbsp;&nbsp; total=0.30s&nbsp; <strong style="color:#b45309">ERROR: TimeoutError</strong></div>
+          <div style="margin-top:4px">slowest span (self time): llm:writer 0.58s</div>
+          <div>cost share by span name: llm:tax_researcher 83%, llm:reviewer 10%, llm:writer 7%</div>
+          <div>critical path (2.80s wall): researcher[contribution limits] &gt; ... &gt; writer &gt; reviewer</div>
+          <div>sum of all leaf spans: 4.16s</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What it shows</span>The researchers dominate cost (four of the six model calls), the wall time is far below the sum because they ran in parallel, and the injected timeout appears exactly where it happened.</div>
+          <div class="callout"><span class="label">What ships</span><code>tracing.py</code> (local JSONL plus optional LangSmith, redacted), <code>analyze.py</code> (offline analysis), the instrumented class 6.2 (Orchestration) team, and a feedback score per run.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 23. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What you can do now, and what is next</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Trace a team as a tree of runs, with kinds and stable names.</li>
+              <li>Compute self time, the critical path, and each span's cost share.</li>
+              <li>Tell the slowest span from the costliest, and fix each the right way.</li>
+              <li>Attach feedback to runs, and set up LangSmith with redaction first.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Micro-assignment (movies)</div>
+            <p class="stmt" style="margin-top:6px">A movie team ran for nine seconds and returned nothing. From its trace file alone, find the span that failed and why, the critical path, the cost of every retry, and what you would change.</p>
+            <div class="callout"><span class="label">Next, class 6.7 (Evaluating agentic systems)</span>From one scored run to many: datasets, metrics, and how confident you can be in the numbers.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
