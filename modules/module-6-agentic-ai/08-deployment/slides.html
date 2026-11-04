@@ -224,9 +224,62 @@
       </div>
     </section>
 
-    <!-- 15. Deploy to Render -->
+    <!-- 15. What Render is -->
     <section>
-      <h2><span class="eyebrow">Concept 3</span>Deploying to Render's free tier</h2>
+      <h2><span class="eyebrow">Concept 3</span>What Render is</h2>
+      <div class="body">
+        <p class="stmt" style="margin:0">A cloud hosting platform: you hand it a Git repository or a Dockerfile, and it builds your code, runs it on its servers, and keeps it running.</p>
+        <div class="cols cols-3">
+          <div>
+            <div class="col-label">Render handles</div>
+            <ul class="tight">
+              <li>A build on every push</li>
+              <li>HTTPS certificates</li>
+              <li>Health checks, logs, metrics</li>
+              <li>Secrets as environment variables</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">You still own</div>
+            <ul class="tight">
+              <li>The code and the Dockerfile</li>
+              <li>The image size</li>
+              <li>The plan, and so the bill</li>
+              <li>Keys and cost controls</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Versus a raw server</div>
+            <ul class="tight">
+              <li>An AWS EC2 machine gives full control</li>
+              <li>You patch the OS and set up networking and certificates</li>
+              <li>Render trades control for no operations work</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Render service types -->
+    <section>
+      <h2><span class="eyebrow">The building blocks</span>Render's service types, and the one we use</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.6fr; font-size:0.86em">
+          <div class="gt-head">Service type</div><div class="gt-head">What it runs</div>
+          <div class="gt-accent">Web service</div><div>a server with a public <code>onrender.com</code> URL: our FastAPI team</div>
+          <div>Static site</div><div>HTML, CSS, and JavaScript served from a CDN, with no server code</div>
+          <div>Private service</div><div>a server reachable only from your other Render services</div>
+          <div>Background worker</div><div>a long-running process with no URL, often draining a job queue</div>
+          <div>Cron job</div><div>a script that runs on a schedule, then exits</div>
+          <div>Datastores</div><div>managed Postgres, and Key Value (Redis-compatible)</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Our choice</span>One web service, built from our Dockerfile, on the free instance type. A Docker build means the image you tested on your laptop is the image Render runs; a native Python runtime would also work, but would rebuild the environment its own way.</div>
+      </div>
+    </section>
+
+    <!-- 17. Deploy to Render -->
+    <section>
+      <h2><span class="eyebrow">Step by step</span>Deploying to Render's free tier</h2>
       <div class="body">
         <div class="path-layout">
           <div class="journey">
@@ -245,7 +298,7 @@
       </div>
     </section>
 
-    <!-- 16. Blueprint -->
+    <!-- 18. Blueprint -->
     <section>
       <h2><span class="eyebrow">Infrastructure as code</span>render.yaml, and the one line not to forget</h2>
       <div class="body">
@@ -266,7 +319,7 @@
       </div>
     </section>
 
-    <!-- 17. Sleep and 750 h -->
+    <!-- 19. Sleep and 750 h -->
     <section>
       <h2><span class="eyebrow">What free means</span>Sleep, wake, and the 750-hour budget</h2>
       <div class="body">
@@ -280,7 +333,7 @@
       </div>
     </section>
 
-    <!-- 18. Alternatives -->
+    <!-- 20. Alternatives -->
     <section>
       <h2><span class="eyebrow">Other hosts</span>Why not Hugging Face Spaces, and the AWS footnote</h2>
       <div class="body">
@@ -292,7 +345,7 @@
       </div>
     </section>
 
-    <!-- 19. Pre-bake -->
+    <!-- 21. Pre-bake -->
     <section>
       <h2><span class="eyebrow">For class</span>The pre-baked deploy target</h2>
       <div class="body">
@@ -303,7 +356,7 @@
       </div>
     </section>
 
-    <!-- 20. Cost controls -->
+    <!-- 22. Cost controls -->
     <section>
       <h2><span class="eyebrow">Concept 4</span>Five controls that bound cost</h2>
       <div class="body">
@@ -318,7 +371,7 @@
       </div>
     </section>
 
-    <!-- 21. Token bucket -->
+    <!-- 23. Token bucket -->
     <section>
       <h2><span class="eyebrow">Rate limiting</span>The token bucket</h2>
       <div class="body">
@@ -331,7 +384,7 @@
       </div>
     </section>
 
-    <!-- 22. Sizing concurrency -->
+    <!-- 24. Sizing concurrency -->
     <section>
       <h2><span class="eyebrow">Sizing</span>Concurrency follows from the provider's limit</h2>
       <div class="body">
@@ -343,7 +396,7 @@
       </div>
     </section>
 
-    <!-- 23. Routing and caching -->
+    <!-- 25. Routing and caching -->
     <section>
       <h2><span class="eyebrow">Two cheap wins</span>Routing and caching, done carefully</h2>
       <div class="body">
@@ -355,7 +408,7 @@
       </div>
     </section>
 
-    <!-- 24. Monitoring -->
+    <!-- 26. Monitoring -->
     <section>
       <h2><span class="eyebrow">After launch</span>Monitoring in production</h2>
       <div class="body">
@@ -368,7 +421,7 @@
       </div>
     </section>
 
-    <!-- 25. Misconception -->
+    <!-- 27. Misconception -->
     <section>
       <h2><span class="eyebrow">Misconception</span>"Deploying means paying for cloud"</h2>
       <div class="body">
@@ -380,7 +433,7 @@
       </div>
     </section>
 
-    <!-- 26. Production checklist -->
+    <!-- 28. Production checklist -->
     <section>
       <h2><span class="eyebrow">The production checklist</span>Before you call it shipped</h2>
       <div class="body">
@@ -397,7 +450,7 @@
       </div>
     </section>
 
-    <!-- 27. The build -->
+    <!-- 29. The build -->
     <section>
       <h2><span class="eyebrow">The build</span>The team, live</h2>
       <div class="body">
@@ -416,7 +469,7 @@
       </div>
     </section>
 
-    <!-- 28. Milestone brief -->
+    <!-- 30. Milestone brief -->
     <section>
       <h2><span class="eyebrow">Module 6 milestone</span>A deployed research team over arXiv abstracts</h2>
       <div class="body">
@@ -443,7 +496,7 @@
       </div>
     </section>
 
-    <!-- 29. Wrap -->
+    <!-- 31. Wrap -->
     <section>
       <h2><span class="eyebrow">Wrap</span>Module 6, shipped</h2>
       <div class="body">
