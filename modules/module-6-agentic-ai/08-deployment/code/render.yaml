@@ -1,0 +1,26 @@
+# Render Blueprint for the tax research team.
+# In the Render Dashboard: New > Blueprint, pick your fork of the course repo, and set the
+# Blueprint path to modules/module-6-agentic-ai/08-deployment/code/render.yaml.
+services:
+  - type: web
+    name: tax-research-team
+    runtime: docker
+    plan: free                      # say it explicitly: an omitted plan defaults to a PAID instance
+    dockerfilePath: ./modules/module-6-agentic-ai/08-deployment/code/Dockerfile
+    dockerContext: ./modules/module-6-agentic-ai/08-deployment/code
+    healthCheckPath: /health
+    envVars:
+      - key: PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false                 # Render asks for the value; it never lives in the repo
+      - key: LANGSMITH_TRACING
+        value: "false"              # set to "true" once LANGSMITH_API_KEY is filled in
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: tax-research-team-prod
+      - key: MAX_CONCURRENT
+        value: "2"
+      - key: ROUTER_TAU
+        value: "0.35"               # use the value --tune suggests in class 6.4 (Guardrails, routing, and compliance)

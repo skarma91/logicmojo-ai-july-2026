@@ -1,0 +1,14 @@
+# Never bake secrets into an image: keys arrive as environment variables at runtime.
+.env
+.env.*
+
+# Local artifacts that would be stale or wasteful inside the image.
+__pycache__/
+*.pyc
+logs/
+traces/
+data/embeddings.npy
+data/ids.json
+.fastembed/
+.git/
+.venv/

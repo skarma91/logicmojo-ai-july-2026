@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 6.8 - Deployment and the production checklist</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 6 &middot; Class 6.8</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 6 &middot; Agentic AI &middot; Class 6.8</span>
+      <h1>Ship it: free tier, no cloud bill</h1>
+      <p class="lead">Everything Module 6 built, the team, the gateway, the tracing, and the evaluation suite, becomes one live API at a public URL. No credit card, no cloud bill, and cost controls that keep a free quota from running dry.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>From a script to a service</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Package with Docker<span class="step-note">One image, runs the same everywhere.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Serve with FastAPI<span class="step-note">Pydantic shapes, async, streaming.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Deploy to a free tier<span class="step-note">Render, and what free really means.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Control cost, then monitor<span class="step-note">Budgets, caching, routing, limits.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Builds on</span>The FastAPI teaser from class 1.5 (APIs and the web), Pydantic from class 4.3 (Structured outputs and tool calling), caching and routing from class 4.7 (How LLMs are served), and every class of Module 6 (Agentic AI).</div>
+            <div class="pill"><span class="pill-tag">Leads to</span>The Module 6 milestone, and the capstone in Module 7 (Capstone).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Docker analogy -->
+    <section>
+      <h2><span class="eyebrow">Concept 1</span>Docker: the shipping container for software</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Before containers</span>"It works on my machine." The server has a different Python, a missing system library, a different version of NumPy. Every deploy is a new debugging session.</div>
+          <div class="callout"><span class="label">The analogy</span>A shipping container has one standard shape, so the same box loads onto any ship, train, or truck without repacking. A container image bundles your code, Python, and every library, so the same image runs on your laptop and on Render.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">What it does not do</span>A container is not a virtual machine: it shares the host's kernel and starts in seconds. It also does not make code correct; it makes environment problems disappear so the remaining problems are yours.</div>
+      </div>
+    </section>
+
+    <!-- 4. Image, container, layers -->
+    <section>
+      <h2><span class="eyebrow">Three words</span>Image, container, layer</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.4fr 2fr; font-size:0.86em">
+          <div class="gt-head">Word</div><div class="gt-head">What it is</div><div class="gt-head">Analogy</div>
+          <div class="gt-accent">Image</div><div>a read-only snapshot: base system, Python, libraries, your code, the start command</div><div>the packed container, sealed</div>
+          <div class="gt-accent">Container</div><div>a running instance of an image, with its own process and a temporary writable layer</div><div>the container, opened at its destination</div>
+          <div class="gt-accent">Layer</div><div>each Dockerfile step adds one; unchanged layers are reused from cache on the next build</div><div>boxes stacked inside, repacked only from the first change up</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why layers matter</span>Docker rebuilds from the first changed layer upward. Put what rarely changes (dependencies) before what often changes (your code), and most rebuilds take seconds instead of minutes.</div>
+      </div>
+    </section>
+
+    <!-- 5. Minimal Dockerfile -->
+    <section>
+      <h2><span class="eyebrow">The recipe</span>A minimal Dockerfile, line by line</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.66em; line-height:1.6; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">example: a small notes API</div>
+          <div>FROM python:3.12-slim<span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# a small official base: Debian plus Python</span></div>
+          <div>WORKDIR /app</div>
+          <div>COPY requirements.txt .<span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # dependencies first: their own cached layer</span></div>
+          <div>RUN pip install --no-cache-dir -r requirements.txt</div>
+          <div>COPY . .<span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # code last: edits only rebuild from here</span></div>
+          <div>USER nobody<span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # do not run as root</span></div>
+          <div>CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}"]</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label"><code>0.0.0.0</code>, not <code>127.0.0.1</code></span>Inside a container, localhost means the container itself. Listening on all interfaces is what lets traffic from outside reach the app.</div>
+          <div class="callout"><span class="label"><code>$PORT</code></span>Hosts tell the app which port to use through an environment variable. Read it; do not hard-code one.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. dockerignore -->
+    <section>
+      <h2><span class="eyebrow">What stays out</span>The .dockerignore file</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Like .gitignore, for the build</span><code>COPY . .</code> copies everything in the folder unless <code>.dockerignore</code> excludes it. Without one, your <code>.env</code> with real keys, local caches, and a virtual environment end up inside the image.</div>
+          <div class="callout"><span class="label">What the build excludes</span><code>.env</code>, <code>__pycache__</code>, logs and traces, local embedding caches (they would be stale), and <code>.git</code>. Smaller images build faster, push faster, and leak nothing.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">A leaked key is forever</span>Anyone who can pull an image can read every file in every layer, including files a later step deleted. If a key was ever baked in, rotate it.</div>
+      </div>
+    </section>
+
+    <!-- 7. Secrets -->
+    <section>
+      <h2><span class="eyebrow">Secrets</span>Keys arrive as environment variables, at run time</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2.4fr; font-size:0.86em">
+          <div class="gt-head">Where</div><div class="gt-head">How the key gets there</div>
+          <div class="gt-accent">Your laptop</div><div><code>.env</code> at the project root (never committed); <code>docker run --env-file .env</code></div>
+          <div class="gt-accent">Render</div><div>set in the service's Environment settings, or prompted at Blueprint setup for variables marked <code>sync: false</code></div>
+          <div class="gt-accent">The image</div><div>never: the same image runs everywhere, so it must carry no key</div>
+          <div class="gt-accent">Logs and traces</div><div>never: do not print configuration at startup</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">One image, many environments</span>Because configuration comes from the environment, the same image becomes "local", "staging", or "production" with different variables, and nothing is rebuilt.</div>
+      </div>
+    </section>
+
+    <!-- 8. Image diet -->
+    <section>
+      <h2><span class="eyebrow">The image diet</span>Fitting a team into 512 MB</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Drop PyTorch</span>sentence-transformers pulls in PyTorch, which alone can exceed the free tier's 512 MB. FastEmbed runs the same MiniLM model on the ONNX runtime with no PyTorch at all.</div>
+          <div class="callout"><span class="label">Bake the vectors</span>Embed the corpus once, at image build time, and ship the vectors inside the image. At request time only the query is embedded.</div>
+          <div class="callout"><span class="label">One process</span>The class 5.5 (MCP) glossary server would load a second copy of the model in a second process. In the container, the same tool interface runs in-process.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Measured at authoring time</span>The service with every library loaded uses about 118 MB before model weights; the MiniLM ONNX model is about 90 MB on disk. Confirm the real figure in the host's memory metrics after deploying.</div>
+      </div>
+    </section>
+
+    <!-- 9. Build time vs run time -->
+    <section>
+      <h2><span class="eyebrow">A general rule</span>Do slow work at build time, not at request time</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.5fr 1.3fr 1.3fr; font-size:0.86em">
+          <div class="gt-head">Work</div><div class="gt-head">At build time</div><div class="gt-head">At startup or per request</div>
+          <div class="gt-accent">Download the model</div><div>once, cached in the image</div><div>on every cold start, and fails if the network does</div>
+          <div class="gt-accent">Embed the corpus</div><div>once, vectors shipped</div><div>minutes of CPU on a 0.1 CPU instance</div>
+          <div class="gt-accent">Embed a query</div><div>impossible: unknown in advance</div><div>milliseconds; the only embedding left at run time</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why it matters on a free tier</span>A sleeping service wakes on the next request. Every second of startup work is a second that user waits, on top of the minute the platform takes to wake.</div>
+      </div>
+    </section>
+
+    <!-- 10. FastAPI -->
+    <section>
+      <h2><span class="eyebrow">Concept 2</span>FastAPI: the early teaser, now built</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.3fr 2.6fr; font-size:0.86em">
+          <div class="gt-head">Endpoint</div><div class="gt-head">What it does</div>
+          <div class="gt-accent"><code>POST /chat</code></div><div>runs the request through the gateway and the team; returns one JSON answer with outcome, sources, model used, cache hit, trace id, and token usage</div>
+          <div class="gt-accent"><code>POST /chat/stream</code></div><div>the same work, sent as Server-Sent Events: progress per graph step, then the final answer</div>
+          <div class="gt-accent"><code>GET /health</code></div><div>answers instantly with no model call, so the host can tell the service is alive</div>
+          <div class="gt-accent"><code>GET /docs</code></div><div>free with FastAPI: interactive documentation generated from the Pydantic models</div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">Class 1.5 (APIs and the web) called an API; now we serve one.</p>
+      </div>
+    </section>
+
+    <!-- 11. Pydantic -->
+    <section>
+      <h2><span class="eyebrow">Shapes</span>Pydantic models define the contract</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">The request</span>One field, <code>question</code>, from 1 to 2,000 characters. An empty or oversized question gets <code>422 Unprocessable Content</code> before any model is called: the cheapest guardrail there is.</div>
+          <div class="callout"><span class="label">The response</span>Typed fields: <code>outcome</code>, <code>answer</code>, <code>route</code>, <code>pii_redacted</code> (the kinds, never the values), <code>model</code>, <code>cached</code>, <code>trace_id</code>, <code>usage</code>, <code>latency_s</code>. Clients can rely on every one.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The trace id is for support</span>When a user reports a bad answer, the trace id in their response opens the exact run in LangSmith (class 6.6, Observability and tracing). No guessing which request it was.</div>
+      </div>
+    </section>
+
+    <!-- 12. Async -->
+    <section>
+      <h2><span class="eyebrow">Concurrency</span>Async endpoints, blocking work, and a semaphore</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">The event loop</span>An <code>async</code> endpoint runs on one event loop that juggles many requests, switching whenever one waits. It must never be blocked.</div>
+          <div class="callout"><span class="label">Blocking work goes to a thread</span>The team makes blocking model calls. <code>asyncio.to_thread</code> runs each request's team in a worker thread, so the loop keeps serving health checks and other clients.</div>
+          <div class="callout"><span class="label">A semaphore caps the work</span><code>asyncio.Semaphore(2)</code> lets two team runs proceed at once; the rest wait their turn. That keeps the shared Groq quota from being hit by ten parallel teams.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Per-request state</span>Concurrent requests must not share settings. The build keeps each request's model choice and budget in context variables, which every thread sees separately.</div>
+      </div>
+    </section>
+
+    <!-- 13. Streaming figure -->
+    <section>
+      <h2><span class="eyebrow">Streaming</span>Server-Sent Events: progress while the team works</h2>
+      <div class="body">
+        <div class="cols cols-2" style="align-items:center">
+          <div>
+            <p class="stmt" style="margin-top:0">A team run takes seconds. Instead of a blank wait, the server sends small events as the graph moves: accepted, each step, then the final answer. The connection stays open until the last event.</p>
+            <div class="callout"><span class="label">How</span>FastAPI's <code>EventSourceResponse</code>: the endpoint yields events. The team runs in a thread and pushes each graph step into a queue the endpoint drains.</div>
+          </div>
+          <div class="figure-wrap">
+            <svg viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+              <defs><marker id="a68" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+              <text x="40" y="18" text-anchor="middle" font-size="11" font-weight="bold" fill="#334155">client</text>
+              <text x="250" y="18" text-anchor="middle" font-size="11" font-weight="bold" fill="#334155">service</text>
+              <line x1="40" y1="26" x2="40" y2="210" stroke="#94a3b8" stroke-dasharray="3,3"/>
+              <line x1="250" y1="26" x2="250" y2="210" stroke="#94a3b8" stroke-dasharray="3,3"/>
+              <line x1="42" y1="42" x2="247" y2="42" stroke="#3f4a63" stroke-width="1.3" marker-end="url(#a68)"/><text x="145" y="37" text-anchor="middle" font-size="9.5" fill="#334155">POST /chat/stream</text>
+              <line x1="248" y1="72" x2="43" y2="72" stroke="#6366f1" stroke-width="1.3" marker-end="url(#a68)"/><text x="145" y="67" text-anchor="middle" font-size="9.5" fill="#3730a3">event: accepted</text>
+              <line x1="248" y1="102" x2="43" y2="102" stroke="#6366f1" stroke-width="1.3" marker-end="url(#a68)"/><text x="145" y="97" text-anchor="middle" font-size="9.5" fill="#3730a3">event: step (supervisor)</text>
+              <line x1="248" y1="132" x2="43" y2="132" stroke="#6366f1" stroke-width="1.3" marker-end="url(#a68)"/><text x="145" y="127" text-anchor="middle" font-size="9.5" fill="#3730a3">event: step (researcher)</text>
+              <line x1="248" y1="162" x2="43" y2="162" stroke="#6366f1" stroke-width="1.3" marker-end="url(#a68)"/><text x="145" y="157" text-anchor="middle" font-size="9.5" fill="#3730a3">event: step (explainer)</text>
+              <line x1="248" y1="192" x2="43" y2="192" stroke="#16a34a" stroke-width="1.6" marker-end="url(#a68)"/><text x="145" y="187" text-anchor="middle" font-size="9.5" fill="#065f46">event: final (the answer JSON)</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Health checks -->
+    <section>
+      <h2><span class="eyebrow">Staying up</span>Health checks</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What the host does with it</span>Render calls <code>/health</code> during deploys and while running. A new version only receives traffic once its health check passes, so a broken build never replaces a working one.</div>
+          <div class="callout"><span class="label">Keep it cheap and honest</span>No model call (it would cost quota and fail when Groq is slow). Do check what the service needs to start: the index is loaded, the configuration is present.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Liveness versus readiness</span>Larger platforms separate "the process is alive" from "it can serve traffic". For one small service, a single cheap check that the index loaded covers both.</div>
+      </div>
+    </section>
+
+    <!-- 15. Deploy to Render -->
+    <section>
+      <h2><span class="eyebrow">Concept 3</span>Deploying to Render's free tier</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Push the repo to GitHub<span class="step-note">Render builds from Git.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">New, then Blueprint<span class="step-note">Point it at render.yaml.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Paste the secrets<span class="step-note">Prompted for sync: false values.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Apply, wait, test<span class="step-note">Open /health at your public URL.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">What you get</div>
+            <div class="pill"><span class="pill-tag">URL</span>An HTTPS address on onrender.com, with a managed certificate.</div>
+            <div class="pill"><span class="pill-tag">Builds</span>A new deploy on every push to the linked branch.</div>
+            <div class="pill"><span class="pill-tag">Cost</span>Nothing, and no payment method is required.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 16. Blueprint -->
+    <section>
+      <h2><span class="eyebrow">Infrastructure as code</span>render.yaml, and the one line not to forget</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 10px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.68em; line-height:1.6; color:#1e293b">
+          <div>services:</div>
+          <div>&nbsp;&nbsp;- type: web</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;runtime: docker</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#b45309">plan: free</strong><span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # omitted means a paid instance</span></div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;healthCheckPath: /health</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;envVars:</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- key: GROQ_API_KEY</div>
+          <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sync: false<span style="color:#64748b">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # asked for at setup, never stored in Git</span></div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Why a file</span>The service's settings live in Git next to the code: reviewed, versioned, and repeatable. Clicking through a dashboard is none of those.</div>
+          <div class="callout"><span class="label">The trap</span>If <code>plan</code> is omitted, Render creates a new web service on a paid instance type. On a free course budget, that line is the difference between zero and a bill.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17. Sleep and 750 h -->
+    <section>
+      <h2><span class="eyebrow">What free means</span>Sleep, wake, and the 750-hour budget</h2>
+      <div class="body">
+        <p style="text-align:center">$$31 \text{ days} \times 24 \text{ hours} = 744 \text{ hours} \;\le\; 750 \text{ free hours}$$</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Sleep</span>After 15 minutes with no traffic, a free service spins down and uses no hours.</div>
+          <div class="callout"><span class="label">Wake</span>The next request wakes it in about a minute. The first user after a quiet spell waits; everyone after that does not.</div>
+          <div class="callout"><span class="label">The budget</span>750 instance hours per workspace per month: one service awake all month fits. Two always-awake services do not.</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">The disk is temporary (lost on every sleep and redeploy), so keep traces in LangSmith, not local files.</p>
+      </div>
+    </section>
+
+    <!-- 18. Alternatives -->
+    <section>
+      <h2><span class="eyebrow">Other hosts</span>Why not Hugging Face Spaces, and the AWS footnote</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Hugging Face Docker Spaces</span>Docker Spaces now require a paid PRO plan. If you already have one, the same image runs there unchanged: that is the point of a container.</div>
+          <div class="callout"><span class="label">AWS and the big clouds</span>When an employer pays, the same image runs on AWS App Runner, ECS, or the equivalent on other clouds, with scaling and no sleep. It is optional for this course and never free at scale.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The portable part</span>A Dockerfile, environment variables for configuration, a health check, and a <code>$PORT</code> listener. Every host above accepts exactly that.</div>
+      </div>
+    </section>
+
+    <!-- 19. Pre-bake -->
+    <section>
+      <h2><span class="eyebrow">For class</span>The pre-baked deploy target</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Before the session</span>Deploy the class build the day before, call <code>/health</code> and <code>/chat</code>, and keep the URL. A first build takes several minutes; class time should not be spent watching it.</div>
+          <div class="callout"><span class="label">On the day</span>Wake the service a minute early. Then the live part of class is the part worth seeing: a real request, a streamed answer, and its trace opening in LangSmith.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 20. Cost controls -->
+    <section>
+      <h2><span class="eyebrow">Concept 4</span>Five controls that bound cost</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.3fr 2.2fr 1.6fr; font-size:0.84em">
+          <div class="gt-head">Control</div><div class="gt-head">What it bounds</div><div class="gt-head">From</div>
+          <div class="gt-accent">Per-request budget</div><div>model calls and prompt tokens in one request; a looping run stops instead of draining quota</div><div>class 5.6 (Reliability and failure modes)</div>
+          <div class="gt-accent">Response cache</div><div>repeated questions answered once per time window</div><div>class 4.7 (How LLMs are served)</div>
+          <div class="gt-accent">Model routing</div><div>the big model used only for hard questions</div><div>class 5.7 (Assemble a single agent)</div>
+          <div class="gt-accent">Concurrency limit</div><div>how many team runs hit the provider at once</div><div>this class</div>
+          <div class="gt-accent">Per-client rate limit</div><div>how much of the shared quota one client can take</div><div>this class</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 21. Token bucket -->
+    <section>
+      <h2><span class="eyebrow">Rate limiting</span>The token bucket</h2>
+      <div class="body">
+        <p style="text-align:center">$$\text{tokens}(t) = \min\big(b,\ \text{tokens}(t_0) + r\,(t - t_0)\big)$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every symbol</span>\(b\) is the bucket's capacity, \(r\) its refill rate in tokens per second, \(t_0\) the last time it was checked. A request is served only if at least one whole token is available, and it removes one.</div>
+          <div class="callout"><span class="label">What it guarantees</span>Bursts of up to \(b\) requests pass at once, so normal use feels instant. Over any long window of \(T\) seconds, at most \(b + rT\) requests pass, so the long-run rate stays at \(r\).</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">The build's defaults, \(b = 5\) and \(r = 0.1\) per second: five quick questions, then one every 10 seconds; a refusal is a <code>429</code> with <code>Retry-After</code>.</p>
+      </div>
+    </section>
+
+    <!-- 22. Sizing concurrency -->
+    <section>
+      <h2><span class="eyebrow">Sizing</span>Concurrency follows from the provider's limit</h2>
+      <div class="body">
+        <p style="text-align:center">$$\text{requests per minute} \;\le\; \frac{\text{provider RPM}}{\text{model calls per request}} = \frac{30}{5} = 6$$</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Every term</span>Provider RPM is the requests per minute your plan allows (about 30 on Groq's free plan at time of writing). Each team request makes about five model calls (classifier, supervisor, researcher, explainer, supervisor), so the service can finish about six requests a minute in total.</div>
+          <div class="callout"><span class="label">What follows</span>A concurrency limit of 2 keeps bursts from tripping the provider's limit, and a per-client rate of six a minute keeps one client from taking it all. More capacity means a paid plan or a local model, not a bigger semaphore.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 23. Routing and caching -->
+    <section>
+      <h2><span class="eyebrow">Two cheap wins</span>Routing and caching, done carefully</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Route by a rule you can read</span>Long, multi-part, or comparative questions ("compare", "versus", more than one question mark) go to <code>gpt-oss-120b</code>; everything else to <code>gpt-oss-20b</code>. A transparent rule is easy to test and to explain; replace it with a classifier only when the rule demonstrably fails.</div>
+          <div class="callout"><span class="label">Cache safely</span>Key the cache on the redacted, normalized question, so no personal data sits in it and trivial differences share one entry. Pick the time-to-live from how fast the answers change: tax rules change yearly, live prices by the minute.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">What not to cache</span>Refusals that depend on context, answers built from a user's own data, and anything a later policy change should alter immediately. The build caches only successful answers.</div>
+      </div>
+    </section>
+
+    <!-- 24. Monitoring -->
+    <section>
+      <h2><span class="eyebrow">After launch</span>Monitoring in production</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">Traces</span>LangSmith traces every request (class 6.6, Observability and tracing), with PII redacted first. Each response carries its trace id.</div>
+          <div class="callout"><span class="label">Logs and metrics</span>The host shows logs, memory, and CPU. Watch memory against the 512 MB limit, and 429 counts against the rate limits.</div>
+          <div class="callout"><span class="label">Health</span>The health check, plus an outside uptime check if users depend on it.</div>
+          <div class="callout"><span class="label">Quality</span>Sample live runs and score them (class 6.7, Evaluating agentic systems); run the offline suite and its gate before every deploy.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 25. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"Deploying means paying for cloud"</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A free web service plus Groq's free plan, or a local model, ships a real multi-agent system at no cost.</p>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What free costs you</span>A one-minute wake after idle, 0.1 CPU, 512 MB, a temporary disk, and a shared model quota. Real limits, all of which this build was designed around.</div>
+          <div class="callout"><span class="label">What free does not cost you</span>Correctness, safety, tracing, evaluation, or a public URL. Paying buys scale and uptime later; the engineering is the same.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 26. Production checklist -->
+    <section>
+      <h2><span class="eyebrow">The production checklist</span>Before you call it shipped</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2.6fr; font-size:0.82em">
+          <div class="gt-head">Area</div><div class="gt-head">Check</div>
+          <div class="gt-accent">Secrets</div><div>no key in the image, the repo, logs, or traces; keys set as environment variables</div>
+          <div class="gt-accent">Safety</div><div>the gateway runs before the team; PII is redacted before logging and tracing</div>
+          <div class="gt-accent">Cost</div><div>budget, cache, routing, concurrency, and per-client limits all on, with sane defaults</div>
+          <div class="gt-accent">Reliability</div><div>health check passes; retries with backoff on 429; errors return a clear message, not a stack trace</div>
+          <div class="gt-accent">Visibility</div><div>tracing on; every response carries a trace id</div>
+          <div class="gt-accent">Quality</div><div>the offline suite and regression gate pass on the build being deployed</div>
+          <div class="gt-accent">Free tier</div><div><code>plan: free</code> set explicitly; memory checked in metrics after the first deploy</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 27. The build -->
+    <section>
+      <h2><span class="eyebrow">The build</span>The team, live</h2>
+      <div class="body">
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0d9488; border-radius:10px; padding:10px 18px; margin:0 0 8px; font-family:'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size:0.6em; line-height:1.6; color:#1e293b">
+          <div style="font-size:0.9em; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:2px">responses (illustrative)</div>
+          <div><span style="color:#64748b">POST /chat&nbsp;&nbsp;</span>{"outcome": "answer", "model": "openai/gpt-oss-20b", "cached": false, "usage": {"calls": 5, ...}, "trace_id": "829d..."}</div>
+          <div><span style="color:#64748b">same again&nbsp;&nbsp;</span>{"outcome": "answer", "cached": true, "latency_s": 0.0, ...}</div>
+          <div><span style="color:#64748b">"Compare..."</span> {"model": "openai/gpt-oss-120b", ...}</div>
+          <div><span style="color:#64748b">7th request&nbsp;</span>429 Too Many Requests, Retry-After: 10</div>
+          <div><span style="color:#64748b">stream&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>accepted, step, step, step, step, step, final</div>
+        </div>
+        <div class="cols cols-2">
+          <div class="callout"><span class="label">What it shows</span>Each control doing its job on real requests: cache hits answered instantly, hard questions routed to the larger model, a burst refused politely, progress streamed.</div>
+          <div class="callout"><span class="label">What ships</span><code>service.py</code>, <code>controls.py</code>, the FastEmbed retriever with baked vectors, <code>Dockerfile</code>, <code>.dockerignore</code>, <code>render.yaml</code>, and the Module 6 gateway, team, and tracer.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 28. Milestone brief -->
+    <section>
+      <h2><span class="eyebrow">Module 6 milestone</span>A deployed research team over arXiv abstracts</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You build</div>
+            <ul class="tight">
+              <li>A supervisor with a paper finder (retrieval over the corpus), a summarizer, and a critic in a bounded review loop.</li>
+              <li>A guardrail gateway with PII redaction in front of it.</li>
+              <li>LangSmith tracing, and a trajectory evaluation over a 20% holdout of tasks.</li>
+              <li>Cost controls, shipped as a live API on Render's free tier.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">You are given</div>
+            <ul class="tight">
+              <li><code>fetch_data.py</code> for the arXiv API, at most one request every three seconds.</li>
+              <li>A committed <code>example_corpus.jsonl</code>, so you can start offline.</li>
+              <li>A stubbed project and a reference solution.</li>
+            </ul>
+            <div class="callout" style="margin-top:8px"><span class="label">Why it matters</span>This is the foundation the capstone in Module 7 (Capstone) extends.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 29. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>Module 6, shipped</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">You can now</div>
+            <ul class="tight">
+              <li>Package a multi-agent system in a small, secret-free Docker image.</li>
+              <li>Serve it with FastAPI: Pydantic shapes, async, streaming, health checks.</li>
+              <li>Deploy it to a free tier and know exactly what free means.</li>
+              <li>Bound its cost with budgets, caching, routing, and rate limits, and watch it run.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Across Module 6 (Agentic AI)</div>
+            <p class="stmt" style="margin-top:6px">From one agent to a team: coordination, context, guardrails, tracing, evaluation, and now deployment. Every piece is now running together at a public URL.</p>
+            <div class="callout"><span class="label">Next</span>The Module 6 milestone, then Module 7 (Capstone).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>

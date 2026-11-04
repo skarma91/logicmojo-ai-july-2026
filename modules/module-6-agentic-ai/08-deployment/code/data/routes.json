@@ -1,0 +1,40 @@
+{
+  "tax_research": {
+    "action": "team",
+    "examples": [
+      "How much can I contribute to a health savings account this year?",
+      "Is the interest on my home mortgage deductible?",
+      "What is the standard deduction for a single filer?",
+      "Do I have to file a federal tax return if my income is low?",
+      "Can I deduct dental treatment as a medical expense?",
+      "What are the limits on deducting charitable donations?"
+    ]
+  },
+  "personal_records": {
+    "action": "refuse",
+    "examples": [
+      "Show me my neighbor's tax return.",
+      "Look up how much another person earned last year.",
+      "Find the Social Security number of my coworker.",
+      "Pull the filing records for someone else."
+    ]
+  },
+  "medical_records": {
+    "action": "refuse",
+    "examples": [
+      "Pull up the medical records for a patient.",
+      "Show me the diagnosis in this patient's chart.",
+      "Access the hospital records of another person.",
+      "What treatment did this patient receive last month?"
+    ]
+  },
+  "account_help": {
+    "action": "canned",
+    "examples": [
+      "Charge my card for the filing fee.",
+      "Update the payment card on my account.",
+      "I forgot my password and cannot log in.",
+      "Cancel my subscription and refund me."
+    ]
+  }
+}
