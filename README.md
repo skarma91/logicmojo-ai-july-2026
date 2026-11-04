@@ -71,7 +71,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [6.6 Observability and tracing](modules/module-6-agentic-ai/06-observability-and-tracing/)
 - [6.7 Evaluating agentic systems](modules/module-6-agentic-ai/07-evaluating-agentic-systems/)
 - [6.8 Deployment](modules/module-6-agentic-ai/08-deployment/)
-- Module 6 milestone assignment (upcoming)
+- [Module 6 milestone assignment](modules/module-6-agentic-ai/milestone-assignment/)
 - Suggested reading (upcoming)
 
 ### Module 7: Capstone
