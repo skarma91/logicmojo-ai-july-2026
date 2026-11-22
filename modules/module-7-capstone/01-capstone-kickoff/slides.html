@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 7.1 - Capstone kickoff: the Customer Support Desk</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 7 &middot; Class 7.1</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 7 &middot; Capstone &middot; Class 7.1</span>
+      <h1>Capstone kickoff: a support desk run by a team of agents</h1>
+      <p class="lead">One real business problem, designed end to end before a line of code: the problem, the architecture, every module and function, and the plan for building it live in class 7.2 (Build lab).</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>From a business problem to a buildable design</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The business problem<span class="step-note">Who hurts, what it costs, what success means.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The approach<span class="step-note">Why a small team of agents, and why plain Python.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">High-level design<span class="step-note">The architecture, one component at a time.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Low-level design<span class="step-note">Modules, data shapes, classes, functions, rules.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">Risks, cost, evaluation, build plan<span class="step-note">What we check before calling it done.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">Uses</span>Supervisors and workers from class 6.1 (Multi-agent architectures), redaction from class 6.4 (Guardrails, routing, and compliance), tracing from class 6.6 (Observability and tracing), and evaluation from class 6.7 (Evaluating agentic systems).</div>
+            <div class="pill"><span class="pill-tag">No code today</span>Today is design. Class 7.2 (Build lab) types this exact design, module by module.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Business problem -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>A support inbox full of the same questions</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">An online shop gets thousands of support messages a week. Most ask the same few things: cancel my order, where is my refund, reset my password. A few are angry customers, payment failures, or people asking for a human.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Customers wait</span>A routine question sits in the same queue as a serious one. "How do I reset my password" waits hours for a two-line answer.</div>
+          <div class="callout"><span class="label">Agents burn out</span>Skilled people spend their day pasting the same help-centre steps, and have less time for the hard cases that need judgment.</div>
+          <div class="callout"><span class="label">The business pays</span>Support cost grows in step with sales: twice the orders means roughly twice the tickets and twice the staff.</div>
+        </div>
+        <p style="margin:6px 0 0"><strong>The goal:</strong> answer routine tickets at once with a correct, grounded reply, and send everything risky to a person, with a summary ready.</p>
+      </div>
+    </section>
+
+    <!-- 4. Why obvious fixes fail -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>Why the obvious fixes fall short</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.1fr 1.7fr 1.7fr; font-size:0.84em">
+          <div class="gt-head">Fix</div><div class="gt-head">What it does well</div><div class="gt-head">Where it breaks</div>
+          <div class="gt-accent">Keyword rules or an FAQ bot</div><div>Cheap, predictable, easy to audit</div><div>"can u cancel my oorder" matches nothing; every new phrasing needs a new rule</div>
+          <div class="gt-accent">One big chatbot that answers everything</div><div>Understands messy language</div><div>Invents order numbers and refund promises, replies cheerfully to an angry customer, and nobody can say why it answered</div>
+          <div class="gt-accent">Hire more agents</div><div>Best quality on hard cases</div><div>Cost scales with volume, and people still spend most of their day on routine replies</div>
+          <div class="gt-accent">Our design</div><div>Language understanding where it is needed, rules where they are safer</div><div>Needs evaluation and tuning; covers only what the help centre covers</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The idea</span>Use a model for the two language jobs (understanding the ticket, writing the reply). Use plain code for every decision that must be predictable: who gets a human, and what a reply may say.</div>
+      </div>
+    </section>
+
+    <!-- 5. Success metrics -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>What success looks like, in numbers</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2.6fr 1fr; font-size:0.84em">
+          <div class="gt-head">Metric</div><div class="gt-head">Plain meaning</div><div class="gt-head">Priority</div>
+          <div class="gt-accent">Escalation recall</div><div>Of the tickets that need a person, the share sent to a person. A miss means an angry or sensitive customer got a bot reply.</div><div>First</div>
+          <div class="gt-accent">Escalation precision</div><div>Of the tickets sent to a person, the share that needed one. Low precision wastes the team's time.</div><div>Second</div>
+          <div class="gt-accent">Auto-resolved rate</div><div>The share of tickets answered without a person, where every reply passed the checks.</div><div>The payoff</div>
+          <div class="gt-accent">Intent accuracy</div><div>Triage named the right kind of request.</div><div>Diagnostic</div>
+          <div class="gt-accent">Cost per ticket</div><div>Model calls and tokens per ticket, from the trace.</div><div>Guardrail</div>
+          <div class="gt-accent">Privacy</div><div>No raw email, phone, or name ever reaches a model or a log.</div><div>Must hold</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">Safety before automation: a desk that escalates a little too often is fine; one that auto-replies to a furious customer is not.</p>
+      </div>
+    </section>
+
+    <!-- 6. The data -->
+    <section>
+      <h2><span class="eyebrow">The data</span>Real, public, labeled: the Bitext support dataset</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">What it is</div>
+            <ul class="tight">
+              <li>26,872 messages, each with an example agent reply.</li>
+              <li>27 intents in 11 categories.</li>
+              <li>Tags for colloquial text, typos, and offensive language (<code>W</code>).</li>
+              <li>License CDLA-Sharing-1.0.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">How we use it</div>
+            <ul class="tight">
+              <li>A committed sample: 174 real rows, all 27 intents.</li>
+              <li>27 help articles: the most detailed reply per intent.</li>
+              <li>147 labeled tickets: every other row, never an article.</li>
+              <li>A fetch script rebuilds both from the full CSV.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Said plainly</span>Bitext calls the data "hybrid synthetic": written in the style of real tickets, not copied from customers. Safe to share; real tickets will be messier.</div>
+      </div>
+    </section>
+
+    <!-- 7. Example tickets -->
+    <section>
+      <h2><span class="eyebrow">The data</span>What the tickets look like</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 2.3fr 1.3fr 1.6fr; font-size:0.84em">
+          <div class="gt-head">Ticket (verbatim from the dataset)</div><div class="gt-head">Labeled intent</div><div class="gt-head">What it tests</div>
+          <div>i have a question about cancelling oorder {{Order Number}}</div><div>cancel_order</div><div>Typos; a placeholder in the text</div>
+          <div>can ya help me to see what payment option are allowed</div><div>check_payment_methods</div><div>Colloquial language</div>
+          <div>where can I check the bloody cancellation penalties?</div><div>check_cancellation_fee</div><div>Offensive tag <code>W</code>: policy says a person</div>
+          <div>I need to make a customer reclamation against your business</div><div>complaint</div><div>Always a person, by policy</div>
+          <div>use {{Account Type}} account</div><div>switch_account</div><div>Keyword-only, almost no signal</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Placeholders</span>The dataset writes order numbers and names as <code>{{Order Number}}</code>. Help articles keep them too, so a reply must never replace a placeholder with an invented value.</div>
+      </div>
+    </section>
+
+    <!-- 8. Why a team -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>Why a small team of agents, not one</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Triage (model)</span>One narrow job: name the intent, urgency, sentiment, and how sure it is. A short prompt with a closed list of 27 intents.</div>
+          <div class="callout"><span class="label">Knowledge (no model)</span>Find the help article by retrieval. A second, independent opinion that costs nothing and cannot invent anything.</div>
+          <div class="callout"><span class="label">Reply writer (model)</span>Draft a reply from one article only. It never decides whether to reply; it only writes.</div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">The split follows the senior default from class 6.1 (Multi-agent architectures): split only on a named reason. Here there are two: each job gets the smallest possible context, and the safety decisions move out of any prompt into code we can test.</p>
+      </div>
+    </section>
+
+    <!-- 9. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"More agents means a smarter system"</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">The tempting design</div>
+            <ul class="tight">
+              <li>A planner agent, a sentiment agent, a policy agent, a tone agent, a reviewer agent, a manager agent.</li>
+              <li>Every hop is another model call, more latency, more cost, and another place to fail.</li>
+              <li>Five steps at 95% each succeed together only 77% of the time.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Our design</div>
+            <ul class="tight">
+              <li>Three agents, and one of them is not even a model.</li>
+              <li>The supervisor is about 50 lines of plain code.</li>
+              <li>A routine ticket costs two model calls; an escalation can cost one.</li>
+            </ul>
+          </div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">The strongest design is the simplest one that meets the requirements. Add an agent only when you can name what it fixes.</p>
+      </div>
+    </section>
+
+    <!-- 10. Why plain Python -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>Why plain Python, not a framework</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2fr 2fr; font-size:0.86em">
+          <div class="gt-head">Question</div><div class="gt-head">Plain Python</div><div class="gt-head">LangGraph (Modules 5 and 6)</div>
+          <div class="gt-accent">Routing</div><div>One <code>next_step()</code> function you can read top to bottom</div><div>Conditional edges and <code>Command</code> handoffs</div>
+          <div class="gt-accent">State</div><div>One dataclass, <code>CaseState</code></div><div>A typed state with reducers</div>
+          <div class="gt-accent">Persistence, streaming</div><div>Not needed for one ticket at a time</div><div>Checkpointers and stream modes built in</div>
+          <div class="gt-accent">Lines to type live</div><div>About 500</div><div>Fewer lines, more concepts to explain</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">The judgment</span>A framework earns its place with long-running, resumable, or branching workflows. One ticket in, one decision out, does not need it. Moving this design onto LangGraph later is a small, mechanical change, because the agents do not know who calls them.</div>
+      </div>
+    </section>
+
+    <!-- 11. Design principles -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>Six principles the design follows</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">1. Redact first</span>Personal data becomes placeholders before any model, log, or trace sees the ticket.</div>
+          <div class="callout"><span class="label">2. Rules in code</span>Escalation and reply checks are Python functions, not prompt instructions a model may ignore.</div>
+          <div class="callout"><span class="label">3. Never trust model JSON</span>Every field the model returns is checked, with a safe fallback.</div>
+          <div class="callout"><span class="label">4. A second opinion</span>Retrieval checks triage. When they disagree on an unsure ticket, a person decides.</div>
+          <div class="callout"><span class="label">5. Bounded everything</span>At most two drafts, at most eight steps. Then a person takes over.</div>
+          <div class="callout"><span class="label">6. Measure it</span>Every step is traced, and an evaluation on labeled tickets decides when it is good enough.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. HLD figure -->
+    <section>
+      <h2><span class="eyebrow">High-level design</span>The architecture on one page</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+            <defs><marker id="h71" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            <text x="20" y="128" font-size="15" fill="#334155">ticket</text>
+            <line x1="20" y1="140" x2="96" y2="140" stroke="#3f4a63" stroke-width="2" marker-end="url(#h71)"/>
+            <rect x="100" y="100" width="150" height="80" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+            <text x="175" y="134" text-anchor="middle" font-size="17" font-weight="bold" fill="#92400e">Redact</text>
+            <text x="175" y="158" text-anchor="middle" font-size="13" fill="#92400e">PII to placeholders</text>
+            <line x1="250" y1="140" x2="326" y2="140" stroke="#3f4a63" stroke-width="2" marker-end="url(#h71)"/>
+            <rect x="330" y="85" width="230" height="110" rx="12" fill="#e0e7ff" stroke="#4338ca" stroke-width="2"/>
+            <text x="445" y="122" text-anchor="middle" font-size="18" font-weight="bold" fill="#312e81">Supervisor</text>
+            <text x="445" y="146" text-anchor="middle" font-size="13" fill="#312e81">next_step(): rules in code</text>
+            <text x="445" y="168" text-anchor="middle" font-size="13" fill="#312e81">guards: escalate? reply safe?</text>
+            <rect x="675" y="20" width="305" height="74" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+            <text x="827" y="50" text-anchor="middle" font-size="16" font-weight="bold" fill="#312e81">Triage agent (model)</text>
+            <text x="827" y="74" text-anchor="middle" font-size="13" fill="#475569">intent, urgency, sentiment, confidence</text>
+            <rect x="675" y="113" width="305" height="74" rx="12" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+            <text x="827" y="143" text-anchor="middle" font-size="16" font-weight="bold" fill="#115e59">Knowledge agent (no model)</text>
+            <text x="827" y="167" text-anchor="middle" font-size="13" fill="#475569">TF-IDF over 27 help articles</text>
+            <rect x="675" y="206" width="305" height="74" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+            <text x="827" y="236" text-anchor="middle" font-size="16" font-weight="bold" fill="#312e81">Reply writer (model)</text>
+            <text x="827" y="260" text-anchor="middle" font-size="13" fill="#475569">a reply from one article only</text>
+            <line x1="560" y1="115" x2="671" y2="62" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h71)"/>
+            <line x1="560" y1="145" x2="671" y2="150" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h71)"/>
+            <line x1="560" y1="175" x2="671" y2="238" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h71)"/>
+            <rect x="250" y="300" width="230" height="74" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="365" y="330" text-anchor="middle" font-size="16" font-weight="bold" fill="#14532d">Reply to customer</text>
+            <text x="365" y="354" text-anchor="middle" font-size="13" fill="#14532d">checked, PII restored</text>
+            <rect x="520" y="300" width="230" height="74" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="635" y="330" text-anchor="middle" font-size="16" font-weight="bold" fill="#7f1d1d">Handoff to a person</text>
+            <text x="635" y="354" text-anchor="middle" font-size="13" fill="#7f1d1d">reason and summary</text>
+            <line x1="420" y1="195" x2="375" y2="296" stroke="#16a34a" stroke-width="1.8" marker-end="url(#h71)"/>
+            <line x1="470" y1="195" x2="620" y2="296" stroke="#dc2626" stroke-width="1.8" marker-end="url(#h71)"/>
+            <text x="880" y="322" text-anchor="middle" font-size="13" fill="#64748b">every step: a trace line</text>
+            <text x="880" y="342" text-anchor="middle" font-size="12" fill="#64748b">(time, calls, tokens; no text)</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 13. Redaction -->
+    <section>
+      <h2><span class="eyebrow">Component 1</span>The redaction gate</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">What it does</div>
+            <ul class="tight">
+              <li>Finds emails, phone numbers, card numbers, ID numbers, and names after a cue such as "I'm" or "my name is".</li>
+              <li>Replaces each with a typed placeholder: <code>&lt;EMAIL_1&gt;</code>, <code>&lt;PERSON_1&gt;</code>.</li>
+              <li>Keeps the originals in a vault, in memory only.</li>
+              <li>Puts them back only in the final reply to the customer who wrote the ticket.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Example</div>
+            <pre><code class="language-text">in : I'm Ana Ruiz, ana@example.com.
+     How do I cancel order 4812?
+out: I'm &lt;PERSON_1&gt;, &lt;EMAIL_1&gt;.
+     How do I cancel order 4812?</code></pre>
+            <div class="callout" style="margin-top:10px"><span class="label">Why first</span>The order number stays: it is not personal data, and the agents need it. Everything downstream, models, traces, and handoff notes, sees only placeholders. This is the redaction module from class 6.4 (Guardrails, routing, and compliance).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 14. Triage -->
+    <section>
+      <h2><span class="eyebrow">Component 2</span>The triage agent</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Contract</div>
+            <ul class="tight">
+              <li><strong>In:</strong> the redacted ticket text.</li>
+              <li><strong>Out:</strong> a <code>Triage</code>: intent (one of 27, or <code>unknown</code>), urgency, sentiment, confidence.</li>
+              <li><strong>How:</strong> one model call answering in JSON, with the 27 intents in the prompt.</li>
+              <li><strong>Cost:</strong> one call, every ticket.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Never trust the JSON</div>
+            <ul class="tight">
+              <li>An intent outside the list becomes <code>unknown</code>: a person takes it.</li>
+              <li>Missing urgency becomes <code>normal</code>; missing sentiment, <code>calm</code>.</li>
+              <li>An unreadable confidence becomes 0, which escalates.</li>
+              <li>No JSON at all escalates. The desk fails toward "ask a person".</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Structured output</span>The same idea as class 4.3 (Structured outputs and tool calling): ask for a shape, then validate it in code.</div>
+      </div>
+    </section>
+
+    <!-- 15. Knowledge -->
+    <section>
+      <h2><span class="eyebrow">Component 3</span>The knowledge agent: retrieval as a second opinion</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Contract</div>
+            <ul class="tight">
+              <li><strong>In:</strong> the redacted ticket and triage's intent.</li>
+              <li><strong>Out:</strong> an <code>Article</code>: the help article for that intent, a similarity <code>score</code>, and <code>agrees</code>: was it also retrieval's own top match?</li>
+              <li><strong>How:</strong> TF-IDF vectors over the 27 articles, compared by cosine similarity. No model, no cost.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">TF-IDF in one line</div>
+            <p style="margin:0">$$w_{t,d} = \mathrm{tf}_{t,d} \times \log\frac{N}{\mathrm{df}_t}$$</p>
+            <p style="margin:4px 0 0; font-size:0.86em">\(w_{t,d}\) is the weight of term \(t\) in article \(d\); \(\mathrm{tf}_{t,d}\) is how often \(t\) appears in \(d\); \(N\) is the number of articles (27); \(\mathrm{df}_t\) is how many articles contain \(t\). A term frequent in one article but rare overall scores high; a word in every article scores near zero.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Terms are letter pieces</span>Tickets are full of typos ("oorder", "acconut"), so the terms are 3 to 5 letter chunks inside words, not whole words. Measured on the 147 labeled tickets: the right article ranked first 69% of the time, against 50% with whole words.</div>
+      </div>
+    </section>
+
+    <!-- 16. Writer -->
+    <section>
+      <h2><span class="eyebrow">Component 4</span>The reply writer agent</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Contract</div>
+            <ul class="tight">
+              <li><strong>In:</strong> the redacted ticket, one <code>Article</code>, and, on a retry, the list of problems with the last draft.</li>
+              <li><strong>Out:</strong> a <code>Draft</code>: the reply text.</li>
+              <li><strong>How:</strong> one model call with a strict prompt: under 120 words, only what the article says, keep every placeholder.</li>
+              <li><strong>Cost:</strong> one call per draft; at most two drafts.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">What it is not allowed to do</div>
+            <ul class="tight">
+              <li>Decide whether to reply. The supervisor already did.</li>
+              <li>Check its own work. The guards do, in code.</li>
+              <li>See other articles, the customer's history, or any real personal data.</li>
+            </ul>
+            <div class="callout" style="margin-top:10px"><span class="label">Less context, fewer inventions</span>A writer that sees one article cannot quote the wrong policy from another. Scoped context is the class 6.3 (Context engineering) habit.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 17. Supervisor -->
+    <section>
+      <h2><span class="eyebrow">Component 5</span>The supervisor: a loop that reads the state</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">The loop</div>
+            <ol class="tight" style="margin:0; padding-left:1.2em">
+              <li>Redact the ticket and create a <code>CaseState</code>.</li>
+              <li>Ask <code>next_step(state)</code> for a step name.</li>
+              <li>Run that step; it fills one field of the state.</li>
+              <li>Repeat until the step is <code>send</code> or <code>escalate</code>.</li>
+              <li>After 8 steps, stop and escalate, whatever happened.</li>
+            </ol>
+          </div>
+          <div>
+            <div class="col-label">Why rules, not a model, route</div>
+            <ul class="tight">
+              <li>Routing here is a handful of if-statements; a model adds cost and randomness for nothing.</li>
+              <li><code>next_step()</code> never calls a model, so routing is tested without spending a token.</li>
+              <li>Every decision is explainable: the trail of steps and the escalation reason.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Contrast</span>In class 6.1 (Multi-agent architectures) a model supervisor chose the next worker, because the path depended on open-ended research. A support ticket's path is known in advance, so code is the better supervisor.</div>
+      </div>
+    </section>
+
+    <!-- 18. Guards -->
+    <section>
+      <h2><span class="eyebrow">Component 6</span>The guards: the policy, in one file</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label"><code>escalation_reason(state)</code></div>
+            <p style="margin:0">Returns why a person must take over now, or nothing. Checked before every step: unclear intent, company policy, an angry or urgent customer, an unsure triage, a weak or disputed article, or two failed drafts.</p>
+          </div>
+          <div>
+            <div class="col-label"><code>check_reply(reply, article, ticket)</code></div>
+            <p style="margin:0">Returns the problems that make a draft unsafe: empty, too long, numbers or placeholders that appear in neither the article nor the ticket, or personal data the writer could not have known.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:12px"><span class="label">Why one file</span>A product manager or a compliance reviewer can read the whole policy here without opening a single prompt. Every threshold is a named constant at the top of the file, set from data and easy to change.</div>
+      </div>
+    </section>
+
+    <!-- 19. Tracing and eval -->
+    <section>
+      <h2><span class="eyebrow">Component 7</span>Tracing and evaluation</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">The tracer</div>
+            <ul class="tight">
+              <li>One JSON line per step: name, ticket id, milliseconds, model calls, tokens, error.</li>
+              <li>Model calls are counted from the usage log in <code>llm.py</code>, so the agents need no changes.</li>
+              <li>No ticket text in a span: a trace file can be shared without leaking personal data.</li>
+              <li>The full version, nested trees and LangSmith, is class 6.6 (Observability and tracing).</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">The evaluation</div>
+            <ul class="tight">
+              <li>Runs the desk on the 147 labeled tickets.</li>
+              <li>Reports the success metrics from the start of today, with a 95% Wilson interval on intent accuracy.</li>
+              <li>A retrieval-only mode scores the knowledge agent with no model at all.</li>
+              <li>Same habits as class 6.7 (Evaluating agentic systems): define success first, then measure it.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 20. Package layout -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>The package: one module per building block</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.3fr 2.6fr 1fr; font-size:0.78em">
+          <div class="gt-head">Module</div><div class="gt-head">Responsibility</div><div class="gt-head">In the lab</div>
+          <div><code>llm.py</code></div><div><code>chat()</code>, <code>chat_json()</code>, retries, usage per agent</div><div>pre-written</div>
+          <div><code>pii.py</code></div><div><code>redact()</code> to placeholders, <code>restore()</code> for the customer</div><div>pre-written</div>
+          <div><code>fetch_data.py</code>, <code>data.py</code></div><div>build and load the articles and tickets</div><div>pre-written</div>
+          <div class="gt-accent"><code>schemas.py</code></div><div>the seven dataclasses</div><div>typed</div>
+          <div class="gt-accent"><code>agents/</code></div><div><code>TriageAgent</code>, <code>KnowledgeAgent</code>, <code>ReplyWriterAgent</code></div><div>typed</div>
+          <div class="gt-accent"><code>guards.py</code></div><div><code>escalation_reason()</code>, <code>check_reply()</code>, the thresholds</div><div>typed</div>
+          <div class="gt-accent"><code>tracing.py</code></div><div><code>Tracer.span()</code></div><div>typed</div>
+          <div class="gt-accent"><code>supervisor.py</code></div><div><code>Supervisor</code>: <code>next_step()</code>, <code>handle()</code>, <code>escalate()</code></div><div>typed</div>
+          <div class="gt-accent"><code>main.py</code>, <code>eval.py</code></div><div>run tickets; measure the desk</div><div>typed</div>
+        </div>
+        <p style="margin:8px 0 0; font-size:0.86em"><strong>Dependency rule:</strong> imports point one way. <code>schemas</code> depends on nothing; agents on <code>schemas</code> and <code>llm</code>; the supervisor on everything. No agent imports another.</p>
+      </div>
+    </section>
+
+    <!-- 21. Data shapes -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>The data shapes in <code>schemas.py</code></h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 2.4fr 1.4fr; font-size:0.82em">
+          <div class="gt-head">Dataclass</div><div class="gt-head">Fields</div><div class="gt-head">Produced by</div>
+          <div class="gt-accent">Ticket</div><div>id, text (raw; never sent to a model)</div><div>the caller</div>
+          <div class="gt-accent">Triage</div><div>intent, urgency, sentiment, confidence</div><div>TriageAgent</div>
+          <div class="gt-accent">Article</div><div>intent, title, body, score, agrees</div><div>KnowledgeAgent</div>
+          <div class="gt-accent">Draft</div><div>text, problems (list of strings)</div><div>ReplyWriterAgent, then guards</div>
+          <div class="gt-accent">Handoff</div><div>reason, summary (redacted)</div><div>Supervisor.escalate</div>
+          <div class="gt-accent">CaseState</div><div>ticket, redacted, vault, triage, article, draft, attempts, trail</div><div>Supervisor, one per ticket</div>
+          <div class="gt-accent">Outcome</div><div>ticket_id, action (reply or escalate), reply, handoff, triage, trail</div><div>Supervisor.handle</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why dataclasses</span>Every agent returns a named shape, not a loose dictionary. A typo in a field name fails at once instead of three steps later.</div>
+      </div>
+    </section>
+
+    <!-- 22. CaseState lifecycle -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>How <code>CaseState</code> fills up, step by step</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1fr 1.1fr 1.1fr 1fr 1fr 1fr; font-size:0.82em">
+          <div class="gt-head">After</div><div class="gt-head">redacted, vault</div><div class="gt-head">triage</div><div class="gt-head">article</div><div class="gt-head">draft</div><div class="gt-head">attempts</div>
+          <div class="gt-accent">start</div><div>set</div><div>None</div><div>None</div><div>None</div><div>0</div>
+          <div class="gt-accent">triage</div><div>set</div><div>set</div><div>None</div><div>None</div><div>0</div>
+          <div class="gt-accent">knowledge</div><div>set</div><div>set</div><div>set</div><div>None</div><div>0</div>
+          <div class="gt-accent">write</div><div>set</div><div>set</div><div>set</div><div>set, checked</div><div>1</div>
+          <div class="gt-accent">write again</div><div>set</div><div>set</div><div>set</div><div>replaced</div><div>2</div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">Each step writes exactly one field. So <code>next_step()</code> only has to ask which field is still empty, and whether the guards object. The <code>trail</code> records the steps in order: <code>triage &gt; knowledge &gt; write &gt; send</code>.</p>
+      </div>
+    </section>
+
+    <!-- 23. Agent interfaces -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>The three agent classes share one shape</h2>
+      <div class="body">
+        <pre><code class="language-python">class TriageAgent:                  # name = "triage"
+    def run(self, text) -&gt; Triage                 # one model call, JSON validated
+
+class KnowledgeAgent:               # name = "knowledge"; fits TF-IDF once
+    def scores(self, text)                        # cosine similarity to all 27
+    def run(self, text, intent) -&gt; Article        # no model call
+
+class ReplyWriterAgent:             # name = "writer"
+    def run(self, text, article, feedback=None) -&gt; Draft   # one call per draft</code></pre>
+        <div class="callout" style="margin-top:10px"><span class="label">The convention</span>Each agent has a <code>name</code>, used to log its model calls, and one <code>run()</code> that returns one dataclass. Agents never see <code>CaseState</code>, so each is testable alone.</div>
+      </div>
+    </section>
+
+    <!-- 24. Routing table -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span><code>next_step()</code>: the routing table</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 0.5fr 2.6fr 1.2fr; font-size:0.86em">
+          <div class="gt-head">#</div><div class="gt-head">Condition, checked in this order</div><div class="gt-head">Next step</div>
+          <div>1</div><div>No triage yet</div><div class="gt-accent">triage</div>
+          <div>2</div><div><code>escalation_reason(state)</code> returns a reason</div><div class="gt-accent">escalate</div>
+          <div>3</div><div>No article yet</div><div class="gt-accent">knowledge</div>
+          <div>4</div><div>No draft yet, or the last draft has problems</div><div class="gt-accent">write</div>
+          <div>5</div><div>Otherwise: a draft with no problems</div><div class="gt-accent">send</div>
+        </div>
+        <div class="cols cols-2" style="margin-top:10px">
+          <div class="callout"><span class="label">Why the guards come second</span>They run before every later step. An angry customer is caught right after triage, before any retrieval or writing is paid for.</div>
+          <div class="callout"><span class="label">Why the retry ends</span>Rule 2 escalates once two drafts have failed, so rule 4 can never loop forever. <code>MAX_STEPS = 8</code> is the backstop.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 25. Escalation rules -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>The escalation rules, in priority order</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 2.2fr 1.6fr 1.8fr; font-size:0.82em">
+          <div class="gt-head">Rule</div><div class="gt-head">Constant</div><div class="gt-head">Why</div>
+          <div>Intent is <code>unknown</code></div><div>none</div><div>We do not know what they want</div>
+          <div>Intent is complaint, payment problem, or asks for a human</div><div><code>ALWAYS_HUMAN</code></div><div>Company policy</div>
+          <div>Sentiment is angry</div><div>none</div><div>A bot reply makes it worse</div>
+          <div>Urgency is high</div><div>none</div><div>Speed matters more than automation</div>
+          <div>Triage confidence below 0.6</div><div><code>MIN_CONFIDENCE</code></div><div>Triage is guessing</div>
+          <div>Chosen article scores below 0.05</div><div><code>MIN_SCORE</code></div><div>The words barely match the article</div>
+          <div>Retrieval disagrees and confidence below 0.8</div><div><code>TRUST_CONFIDENCE</code></div><div>Two unsure opinions differ</div>
+          <div>Two drafts failed the checks</div><div><code>MAX_ATTEMPTS</code></div><div>The writer cannot get it right</div>
+        </div>
+        <p style="margin:8px 0 0; font-size:0.86em"><code>MIN_SCORE</code> came from the data: about 5% of labeled tickets score below 0.05 against their own article.</p>
+      </div>
+    </section>
+
+    <!-- 26. Reply checks -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span><code>check_reply()</code>: what a reply may say</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.4fr 2.2fr 1.8fr; font-size:0.84em">
+          <div class="gt-head">Check</div><div class="gt-head">Example of a failing draft</div><div class="gt-head">Problem reported</div>
+          <div class="gt-accent">Empty or too long</div><div>(nothing), or 180 words</div><div>empty reply; too long (limit 150)</div>
+          <div class="gt-accent">Invented number</div><div>"Your order 99999 will be refunded $12345."</div><div>numbers not in the article or ticket</div>
+          <div class="gt-accent">Invented placeholder</div><div>A payment reply that mentions {{Order Number}}</div><div>placeholders not in the article</div>
+          <div class="gt-accent">Personal data</div><div>An email address appears in the reply</div><div>data the writer could not have known</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">How the retry uses it</span>The list of problems goes back to the writer as feedback: "Your previous draft was rejected. Fix these problems." A second failure escalates, and the handoff reason names the problem.</div>
+      </div>
+    </section>
+
+    <!-- 27. One ticket end to end -->
+    <section>
+      <h2><span class="eyebrow">Low-level design</span>One ticket, end to end</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">Redact<span class="step-note">"I'm Ana Ruiz, ana@example.com. How do I cancel order 4812?" becomes "I'm &lt;PERSON_1&gt;, &lt;EMAIL_1&gt;. ..."</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">Triage<span class="step-note">cancel_order, normal urgency, calm, confidence 0.9. Guards: no objection.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">Knowledge<span class="step-note">"Cancel an order", agrees with triage, score above 0.05.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">Write and check<span class="step-note">A draft greeting &lt;PERSON_1&gt; with the cancellation steps; no problems.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">Send<span class="step-note">restore() puts "Ana Ruiz" back. The trace holds four lines and no name.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">The same ticket, angrier</div>
+            <div class="pill"><span class="pill-tag">Steps</span>"I'm furious, cancel my order now": triage says angry, so the next step is escalate. Two steps, one model call.</div>
+            <div class="pill"><span class="pill-tag">Handoff</span>cancel_order (ORDER), urgency high, sentiment angry, plus the redacted message. The person starts informed.</div>
+          </div>
+        </div>
+        <p style="margin:6px 0 0; font-size:0.84em">Triage values shown are illustrative; a real run's confidence varies by model.</p>
+      </div>
+    </section>
+
+    <!-- 28. Failure modes -->
+    <section>
+      <h2><span class="eyebrow">Risks</span>How each step fails, and what catches it</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.6fr 2.2fr 1.6fr; font-size:0.82em">
+          <div class="gt-head">Failure</div><div class="gt-head">What happens</div><div class="gt-head">Caught by</div>
+          <div class="gt-accent">Triage returns broken JSON</div><div>Every field missing; intent becomes unknown</div><div>Validation, then escalation</div>
+          <div class="gt-accent">Triage picks the wrong intent</div><div>The wrong article is chosen</div><div>Score and agreement rules</div>
+          <div class="gt-accent">Writer invents a number or promise</div><div>Unsafe reply drafted</div><div><code>check_reply</code>, retry, then escalation</div>
+          <div class="gt-accent">Upset customer</div><div>A bot reply would make it worse</div><div>Sentiment rule, before any writing</div>
+          <div class="gt-accent">A bug makes routing loop</div><div>Steps repeat</div><div><code>MAX_STEPS</code>, then escalation</div>
+          <div class="gt-accent">Provider rate limit (HTTP 429)</div><div>A call fails</div><div>Retries with backoff in <code>llm.py</code></div>
+          <div class="gt-accent">Personal data leaks</div><div>Into a model, log, or trace</div><div>Redaction first; spans carry no text</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">Every failure path ends in the same place: a person, with a reason. The desk is allowed to be unhelpful; it is not allowed to be wrong.</p>
+      </div>
+    </section>
+
+    <!-- 29. Cost -->
+    <section>
+      <h2><span class="eyebrow">Cost</span>What one ticket costs</h2>
+      <div class="body">
+        <p style="text-align:center; margin:0">$$\text{calls per ticket} = \underbrace{1}_{\text{triage}} + \underbrace{d}_{\text{drafts}}, \qquad d \in \{0, 1, 2\}$$</p>
+        <div class="cols cols-3" style="margin-top:6px">
+          <div class="callout"><span class="label">Early escalation</span>\(d = 0\): one call. Angry, urgent, policy, and unclear tickets stop after triage.</div>
+          <div class="callout"><span class="label">Routine reply</span>\(d = 1\): two calls. The common path.</div>
+          <div class="callout"><span class="label">Rejected draft</span>\(d = 2\): three calls, then a reply or a person.</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">On a free tier (illustrative)</span>At about two calls per ticket and Groq's free limit of roughly 30 requests a minute for <code>openai/gpt-oss-20b</code>, one key handles about 15 tickets a minute. Retrieval, routing, and checks are free. Real per-agent numbers come from the trace.</div>
+      </div>
+    </section>
+
+    <!-- 30. Evaluation plan -->
+    <section>
+      <h2><span class="eyebrow">Evaluation</span>How we will know it works</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">The ground truth</div>
+            <ul class="tight">
+              <li>147 labeled tickets, never used as help articles.</li>
+              <li><strong>Needs a person</strong> when the intent is in <code>ALWAYS_HUMAN</code>, or Bitext tagged the message as offensive (<code>W</code>).</li>
+              <li>Intent labels come with the dataset.</li>
+            </ul>
+            <div class="col-label" style="margin-top:10px">Measured already, no model</div>
+            <p style="margin:0">Retrieval alone ranks the right article first for 102 of 147 tickets (69%) and in the top three for 129 (88%). Good enough to check triage, not to replace it.</p>
+          </div>
+          <div>
+            <div class="col-label">Read the numbers in this order</div>
+            <ol class="tight" style="margin:0; padding-left:1.2em">
+              <li>Escalation recall: did every risky ticket reach a person?</li>
+              <li>Escalation precision: how much human time was wasted?</li>
+              <li>Auto-resolved rate: how much work did the desk take off the team?</li>
+              <li>Intent accuracy, with its 95% Wilson interval: 147 tickets is a small sample.</li>
+              <li>Calls and tokens per ticket.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 31. Privacy and scope -->
+    <section>
+      <h2><span class="eyebrow">Limits</span>Privacy, and what is out of scope</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Privacy by design</div>
+            <ul class="tight">
+              <li>Redaction before any model call; restore only in the final reply.</li>
+              <li>Traces hold step names and numbers, never ticket text.</li>
+              <li>Handoff summaries use the redacted text.</li>
+              <li>Synthetic data: no real customer data in the repository.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Out of scope, on purpose</div>
+            <ul class="tight">
+              <li>Acting on real accounts: the desk explains steps.</li>
+              <li>Multi-turn chat: one ticket in, one outcome out.</li>
+              <li>Languages other than English.</li>
+              <li>Learning from feedback: people make the changes.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Scope is a feature</span>A finished, measured desk beats a half-built one that promises everything. Each item on the right is a clean next step.</div>
+      </div>
+    </section>
+
+    <!-- 32. Build plan -->
+    <section>
+      <h2><span class="eyebrow">Next class</span>The build plan for class 7.2 (Build lab)</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 0.5fr 2fr 2.6fr 0.8fr; font-size:0.82em">
+          <div class="gt-head">#</div><div class="gt-head">Block</div><div class="gt-head">Checkpoint that proves it works</div><div class="gt-head">Time</div>
+          <div>1</div><div>Tour the pre-written files</div><div>Redact a sentence live</div><div>10 min</div>
+          <div>2</div><div><code>schemas.py</code></div><div>Create an empty <code>CaseState</code></div><div>8 min</div>
+          <div>3</div><div>Knowledge agent</div><div>Find the article for "cancel oorder"</div><div>12 min</div>
+          <div>4</div><div>Triage agent</div><div>Triage three very different tickets</div><div>12 min</div>
+          <div>5</div><div>Reply writer</div><div>Draft a reply from one article</div><div>8 min</div>
+          <div>6</div><div><code>guards.py</code></div><div>Policy escalation; catch an invented number</div><div>15 min</div>
+          <div>7</div><div><code>tracing.py</code></div><div>Write one span to a file</div><div>6 min</div>
+          <div>8</div><div><code>supervisor.py</code></div><div>A routine reply and an angry escalation</div><div>20 min</div>
+          <div>9</div><div><code>main.py</code>, <code>eval.py</code></div><div>Run sample tickets; read the metrics</div><div>19 min</div>
+        </div>
+        <p style="margin:8px 0 0; font-size:0.86em">Optional last step: the same desk behind a FastAPI endpoint, deployable to Render's free tier as in class 6.8 (Deployment).</p>
+      </div>
+    </section>
+
+    <!-- 33. Wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>What we designed today</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">The design in five lines</div>
+            <ul class="tight">
+              <li>Redact first; restore only for the customer.</li>
+              <li>Triage and the writer are models; knowledge is retrieval; the supervisor is code.</li>
+              <li>One policy file decides who gets a person and what a reply may say.</li>
+              <li>Every loop is bounded; every failure ends with a person and a reason.</li>
+              <li>Traced and measured on 147 labeled tickets.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Before class 7.2 (Build lab)</div>
+            <ul class="tight">
+              <li>Set up Python, the requirements, and a <code>.env</code> with a Groq key, or Ollama locally.</li>
+              <li>Run <code>python fetch_data.py --sample</code> and open one line of each data file.</li>
+              <li>Sketch, on paper, the <code>CaseState</code> after each step for one ticket of your choice.</li>
+            </ul>
+            <div class="callout" style="margin-top:10px"><span class="label">Then</span>Class 7.3 (Interview prep and capstone) brings your own capstone: a different problem, a different team, and your own low-level design.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>

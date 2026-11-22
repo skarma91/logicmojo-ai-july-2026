@@ -75,19 +75,23 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [Suggested reading](modules/module-6-agentic-ai/suggested_reading_list/)
 
 ### Module 7: Capstone
-- 7.1 Capstone kickoff (upcoming)
-- 7.2 Build lab 1 (upcoming)
-- 7.3 Build lab 2 (upcoming)
-- 7.4 Interview prep and capstone (upcoming)
-- Capstone project (upcoming)
+- [7.1 Capstone kickoff](modules/module-7-capstone/01-capstone-kickoff/)
+- 7.2 Build lab: the customer support desk (upcoming)
+- 7.3 Interview prep and capstone (upcoming)
+- Capstone project: the Travel Planner (upcoming)
 - Suggested reading (upcoming)
+
+### Resources
+- Interview preparation guides (upcoming)
 <!-- COURSE-ROADMAP:END -->
 
 ## About
 
-Seven modules, 45 classes, taught hands-on in live classes. Each class ships a
-Reveal.js deck (`slides.html`), a `code/` folder with the
-runnable material (`.ipynb` notebooks, or `.py` files) and a micro-assignment for that class.
-Every module closes with a milestone assignment and a suggested reading list of
-free videos, blogs, articles, and book chapters to go deeper. New classes are
-published as the live cohort reaches them.
+7 modules, 43 classes, taught hands-on in live classes. Each class ships a
+Reveal.js deck (`slides.html`) to teach from and a `code/` folder with the
+runnable material (`.ipynb` notebooks, or `.py` files from Module 4 class 05).
+Modules 1 to 6 close with a milestone assignment; Module 7 is the capstone: a
+team of agents designed and built live in class, and a second one you build
+yourself. Every module has a suggested reading list of free videos, blogs,
+articles, and book chapters, and there is one interview preparation guide per
+module. New classes are published each week as the live cohort reaches them.

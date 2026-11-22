@@ -161,22 +161,8 @@ tools/
 
 # Course modules and their submodules
 
-modules/module-6-agentic-ai/01-multi-agent-architectures/micro-assignment/solution/
-modules/module-6-agentic-ai/02-orchestration/micro-assignment/solution/
-modules/module-6-agentic-ai/03-context-engineering/micro-assignment/solution/
-modules/module-6-agentic-ai/04-guardrails-routing-compliance/micro-assignment/solution/
-modules/module-6-agentic-ai/05-ai-security/micro-assignment/solution/
-modules/module-6-agentic-ai/06-observability-and-tracing/micro-assignment/solution/
-modules/module-6-agentic-ai/07-evaluating-agentic-systems/micro-assignment/solution/
-modules/module-6-agentic-ai/08-deployment/micro-assignment/solution/
-modules/module-6-agentic-ai/09-no-code-with-n8n/
-modules/module-6-agentic-ai/09-no-code-with-n8n/micro-assignment/solution/
-modules/module-6-agentic-ai/milestone-assignment/solution/
-
-modules/module-7-capstone/01-capstone-kickoff/
-modules/module-7-capstone/02-build-lab-1/
-modules/module-7-capstone/03-build-lab-2/
-modules/module-7-capstone/04-interview-prep-and-capstone/
+modules/module-7-capstone/02-build-lab/
+modules/module-7-capstone/03-interview-prep-and-capstone/
 modules/module-7-capstone/capstone/
 modules/module-7-capstone/suggested_reading_list/
 
@@ -192,3 +178,22 @@ modules/module-7-capstone/suggested_reading_list/
 **/code/dka-merged
 *.gguf
 *.safetensors
+
+# Module 6 milestone: generated vectors, eval sets, baselines, traces, logs, and the fetched corpus
+**/milestone-assignment/*/data/embeddings.npy
+**/milestone-assignment/*/data/ids.json
+**/milestone-assignment/*/data/eval.jsonl
+**/milestone-assignment/*/data/baseline.json
+**/milestone-assignment/*/data/corpus.jsonl
+**/milestone-assignment/*/traces/
+**/milestone-assignment/*/logs/
+
+# Internal notebook generators (kept locally, not shipped)
+**/code/build_notebook.py
+**/micro-assignment/build_micro.py
+
+# Internal build plans (not published)
+MODULE7_PLAN.md
+
+# Module 7 build lab: local traces
+modules/module-7-capstone/**/traces/
