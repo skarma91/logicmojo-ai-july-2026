@@ -1,0 +1,15 @@
+# Optional Render Blueprint. In the Render Dashboard: New > Blueprint, pick your fork,
+# and set the Blueprint path to modules/module-7-capstone/02-build-lab/code/render.yaml.
+services:
+  - type: web
+    name: support-desk
+    runtime: docker
+    plan: free                      # an omitted plan defaults to a PAID instance
+    dockerfilePath: ./modules/module-7-capstone/02-build-lab/code/Dockerfile
+    dockerContext: ./modules/module-7-capstone/02-build-lab/code
+    healthCheckPath: /health
+    envVars:
+      - key: PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false                 # Render asks for the value; it never lives in the repo

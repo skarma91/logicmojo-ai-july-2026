@@ -1,0 +1,147 @@
+{"text": "I need to check what shipment methods are available", "intent": "delivery_options", "category": "DELIVERY", "flags": "BLM", "id": "t001"}
+{"text": "cancel the subscription to your corporate newsletter", "intent": "newsletter_subscription", "category": "SUBSCRIPTION", "flags": "BL", "id": "t002"}
+{"text": "I need help to see your refund policy", "intent": "check_refund_policy", "category": "REFUND", "flags": "BL", "id": "t003"}
+{"text": "where to see the payment methods?", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BIL", "id": "t004"}
+{"text": "what do i have to do to createa premium account", "intent": "create_account", "category": "ACCOUNT", "flags": "BILQZ", "id": "t005"}
+{"text": "I want assistance to see the early exit penalty", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BL", "id": "t006"}
+{"text": "is it possible to see the early exit fees?", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BILM", "id": "t007"}
+{"text": "I have to receive a reimbursement of money", "intent": "get_refund", "category": "REFUND", "flags": "BL", "id": "t008"}
+{"text": "would it be possible to inform of a bloody payment error?", "intent": "payment_issue", "category": "PAYMENT", "flags": "BILPW", "id": "t009"}
+{"text": "I want to check what hours I can reach customer support", "intent": "contact_customer_service", "category": "CONTACT", "flags": "BL", "id": "t010"}
+{"text": "want help lodging a consumer reclmaation", "intent": "complaint", "category": "FEEDBACK", "flags": "BLQZ", "id": "t011"}
+{"text": "is it possible to download the damn invoice from {{Person Name}}?", "intent": "get_invoice", "category": "INVOICE", "flags": "BILW", "id": "t012"}
+{"text": "I have to see purchase {{Order Number}} current status", "intent": "track_order", "category": "ORDER", "flags": "BL", "id": "t013"}
+{"text": "edit information on platinum account", "intent": "edit_account", "category": "ACCOUNT", "flags": "BKL", "id": "t014"}
+{"text": "I want to modify my delivery address", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BL", "id": "t015"}
+{"text": "what is the ucstomer support working hours", "intent": "contact_customer_service", "category": "CONTACT", "flags": "BILMQZ", "id": "t016"}
+{"text": "I need assistance giving a quick look at the bill #12588", "intent": "check_invoice", "category": "INVOICE", "flags": "BL", "id": "t017"}
+{"text": "see what payment optionsx are allowed", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BLZ", "id": "t018"}
+{"text": "asking for reimbursement of money", "intent": "get_refund", "category": "REFUND", "flags": "BKL", "id": "t019"}
+{"text": "I am trying to download the bills from {{Person Name}}", "intent": "get_invoice", "category": "INVOICE", "flags": "BLM", "id": "t020"}
+{"text": "i dont know how i can submit my feedback for ur products", "intent": "review", "category": "FEEDBACK", "flags": "BLQ", "id": "t021"}
+{"text": "I do not understand you, I need help to speak with a person", "intent": "contact_human_agent", "category": "CONTACT", "flags": "BCEL", "id": "t022"}
+{"text": "is it possible to reset my pass", "intent": "recover_password", "category": "ACCOUNT", "flags": "BILQZ", "id": "t023"}
+{"text": "i have a question about cancelling oorder {{Order Number}}", "intent": "cancel_order", "category": "ORDER", "flags": "BQZ", "id": "t024"}
+{"text": "opening pro account", "intent": "create_account", "category": "ACCOUNT", "flags": "BKL", "id": "t025"}
+{"text": "need assistance to make a consumer claim against ur business", "intent": "complaint", "category": "FEEDBACK", "flags": "BLQ", "id": "t026"}
+{"text": "how to check at what time i can call customer support", "intent": "contact_customer_service", "category": "CONTACT", "flags": "BILQ", "id": "t027"}
+{"text": "I expect a reimbursement of {{Currency Symbol}}{{Refund Amount}}", "intent": "track_refund", "category": "REFUND", "flags": "BL", "id": "t028"}
+{"text": "i need assistance to add some products to order {{Order Number}}", "intent": "change_order", "category": "ORDER", "flags": "BLMQ", "id": "t029"}
+{"text": "where can i see the damn eta of the purchase {{Order Number}}", "intent": "track_order", "category": "ORDER", "flags": "BILQW", "id": "t030"}
+{"text": "question about cancelling order {{Order Number}}", "intent": "cancel_order", "category": "ORDER", "flags": "B", "id": "t031"}
+{"text": "wanna check when will my article arrive how can i do it", "intent": "delivery_period", "category": "DELIVERY", "flags": "BCILQ", "id": "t032"}
+{"text": "help me obtaining a reimbursement of money", "intent": "get_refund", "category": "REFUND", "flags": "BL", "id": "t033"}
+{"text": "i have got to report issues with online payment", "intent": "payment_issue", "category": "PAYMENT", "flags": "BLMQ", "id": "t034"}
+{"text": "problem with my forgotten pin", "intent": "recover_password", "category": "ACCOUNT", "flags": "BLQZ", "id": "t035"}
+{"text": "want support modifying the delivery address", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BLQ", "id": "t036"}
+{"text": "I cannot afford this order, cancel purchase {{Order Number}}", "intent": "cancel_order", "category": "ORDER", "flags": "BCELN", "id": "t037"}
+{"text": "can ya help me to see what payment option are allowed", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BILQZ", "id": "t038"}
+{"text": "see invoices from {{Person Name}}", "intent": "check_invoice", "category": "INVOICE", "flags": "BKLM", "id": "t039"}
+{"text": "I want help to acquire some of your rpoduct", "intent": "place_order", "category": "ORDER", "flags": "BLMZ", "id": "t040"}
+{"text": "find information about the lost access key", "intent": "recover_password", "category": "ACCOUNT", "flags": "BL", "id": "t041"}
+{"text": "help to correct the information included on my user", "intent": "edit_account", "category": "ACCOUNT", "flags": "BL", "id": "t042"}
+{"text": "need assistance giving a quick loik at my bill #37777", "intent": "check_invoice", "category": "INVOICE", "flags": "BLQZ", "id": "t043"}
+{"text": "I haave to submit a secondary delivery address", "intent": "set_up_shipping_address", "category": "SHIPPING", "flags": "BLZ", "id": "t044"}
+{"text": "I need to cancel my subscription to the company newsletter", "intent": "newsletter_subscription", "category": "SUBSCRIPTION", "flags": "BL", "id": "t045"}
+{"text": "I want to get my invoices from {{Person Name}}, how can I do it?", "intent": "get_invoice", "category": "INVOICE", "flags": "BCILM", "id": "t046"}
+{"text": "wanna use the premium account", "intent": "switch_account", "category": "ACCOUNT", "flags": "BQ", "id": "t047"}
+{"text": "I want to see in which cases can I ask for my money back", "intent": "check_refund_policy", "category": "REFUND", "flags": "BL", "id": "t048"}
+{"text": "I'm trying to enter the secodnary shipping address", "intent": "set_up_shipping_address", "category": "SHIPPING", "flags": "BLQZ", "id": "t049"}
+{"text": "tell me about a delivery address change", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BL", "id": "t050"}
+{"text": "helpme resetting the pass of my profile", "intent": "recover_password", "category": "ACCOUNT", "flags": "BLQZ", "id": "t051"}
+{"text": "I am waiting for a refund of {{Refund Amount}} dollars", "intent": "track_refund", "category": "REFUND", "flags": "B", "id": "t052"}
+{"text": "I want assistance listing the accepted paymment options", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BLZ", "id": "t053"}
+{"text": "opdn {{Account Type}} account", "intent": "create_account", "category": "ACCOUNT", "flags": "BKLZ", "id": "t054"}
+{"text": "can you help me cancel order {{Order Number}}?", "intent": "cancel_order", "category": "ORDER", "flags": "BI", "id": "t055"}
+{"text": "I want to see in what cases can I request a refund, help me", "intent": "check_refund_policy", "category": "REFUND", "flags": "BCL", "id": "t056"}
+{"text": "I need to cancel purchase {{Order Number}}", "intent": "cancel_order", "category": "ORDER", "flags": "BL", "id": "t057"}
+{"text": "modify details on standard account", "intent": "edit_account", "category": "ACCOUNT", "flags": "BKLM", "id": "t058"}
+{"text": "I cannot open a user account, can I report a sign-up error?", "intent": "registration_problems", "category": "ACCOUNT", "flags": "BCEILN", "id": "t059"}
+{"text": "reimbursing {{Refund Amount}} dollars", "intent": "get_refund", "category": "REFUND", "flags": "BKLM", "id": "t060"}
+{"text": "I would like to create a {{Account Type}} account, how can I do it?", "intent": "create_account", "category": "ACCOUNT", "flags": "BCILP", "id": "t061"}
+{"text": "how to get invoice #00108?", "intent": "get_invoice", "category": "INVOICE", "flags": "BI", "id": "t062"}
+{"text": "I want help filing a consumer reclamation", "intent": "complaint", "category": "FEEDBACK", "flags": "BL", "id": "t063"}
+{"text": "want help to see the termination charge", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BLQ", "id": "t064"}
+{"text": "can you help me changing to the gold account?", "intent": "switch_account", "category": "ACCOUNT", "flags": "BIL", "id": "t065"}
+{"text": "I want assistance to solve a trouble with online payment", "intent": "payment_issue", "category": "PAYMENT", "flags": "BL", "id": "t066"}
+{"text": "i dont know what i have to do to change to the {{Account Type}} account", "intent": "switch_account", "category": "ACCOUNT", "flags": "BLQ", "id": "t067"}
+{"text": "assistance listing your available payment methods", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BL", "id": "t068"}
+{"text": "can you help me speaking with a human agent?", "intent": "contact_human_agent", "category": "CONTACT", "flags": "BIL", "id": "t069"}
+{"text": "I need to see how long reimbursements take, how do I do it?", "intent": "check_refund_policy", "category": "REFUND", "flags": "BCIL", "id": "t070"}
+{"text": "want assistance modifying the goddamn user info", "intent": "edit_account", "category": "ACCOUNT", "flags": "BLQW", "id": "t071"}
+{"text": "close premium account", "intent": "delete_account", "category": "ACCOUNT", "flags": "BKL", "id": "t072"}
+{"text": "I need to see how long it takes for my parcel to arrive", "intent": "delivery_period", "category": "DELIVERY", "flags": "BL", "id": "t073"}
+{"text": "help me remove a product from purchase {{Order Number}}", "intent": "change_order", "category": "ORDER", "flags": "BL", "id": "t074"}
+{"text": "can you help me to check what methods for delivery I have?", "intent": "delivery_options", "category": "DELIVERY", "flags": "BILM", "id": "t075"}
+{"text": "information about the subscription to the newsletter", "intent": "newsletter_subscription", "category": "SUBSCRIPTION", "flags": "BL", "id": "t076"}
+{"text": "I need help to take a quick look at the bill #00108", "intent": "check_invoice", "category": "INVOICE", "flags": "BL", "id": "t077"}
+{"text": "what do i need to do to check the status of the restitution", "intent": "track_refund", "category": "REFUND", "flags": "BILQ", "id": "t078"}
+{"text": "help me to check in what cases can i ask to be refunded", "intent": "check_refund_policy", "category": "REFUND", "flags": "BQZ", "id": "t079"}
+{"text": "need help to speak with somebody", "intent": "contact_human_agent", "category": "CONTACT", "flags": "BLQ", "id": "t080"}
+{"text": "i dont know what i need to do to subscribe to the newsletter", "intent": "newsletter_subscription", "category": "SUBSCRIPTION", "flags": "BLQ", "id": "t081"}
+{"text": "can uhelp me speak with an operator", "intent": "contact_human_agent", "category": "CONTACT", "flags": "BILQ", "id": "t082"}
+{"text": "how can I see the allowed payment methods?", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BIL", "id": "t083"}
+{"text": "can I change to the gold account?", "intent": "switch_account", "category": "ACCOUNT", "flags": "BIL", "id": "t084"}
+{"text": "cancelling {{Account Category}} account", "intent": "delete_account", "category": "ACCOUNT", "flags": "BKL", "id": "t085"}
+{"text": "can ya help me opening a {{Account Category}} account", "intent": "create_account", "category": "ACCOUNT", "flags": "BILQ", "id": "t086"}
+{"text": "assistance checking the withdrawal penalties", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BLM", "id": "t087"}
+{"text": "help me checking how soon can I expect my product", "intent": "delivery_period", "category": "DELIVERY", "flags": "BL", "id": "t088"}
+{"text": "I can't register, help to inform of a signup issue", "intent": "registration_problems", "category": "ACCOUNT", "flags": "BCLN", "id": "t089"}
+{"text": "I want help submitting feedbacki about your services", "intent": "review", "category": "FEEDBACK", "flags": "BLZ", "id": "t090"}
+{"text": "edit purchase {{Order Number}}", "intent": "change_order", "category": "ORDER", "flags": "BKL", "id": "t091"}
+{"text": "cancel premium acount", "intent": "delete_account", "category": "ACCOUNT", "flags": "BKLZ", "id": "t092"}
+{"text": "help to see the status of my rebate", "intent": "track_refund", "category": "REFUND", "flags": "BL", "id": "t093"}
+{"text": "how could I make a consumer claim against your company?", "intent": "complaint", "category": "FEEDBACK", "flags": "BILP", "id": "t094"}
+{"text": "I do not know how to see the status of order {{Order Number}}", "intent": "track_order", "category": "ORDER", "flags": "BEL", "id": "t095"}
+{"text": "I am looking for the shipping periods, will you help me?", "intent": "delivery_period", "category": "DELIVERY", "flags": "BCEILMP", "id": "t096"}
+{"text": "want help to inform of issues with online payments", "intent": "payment_issue", "category": "PAYMENT", "flags": "BLMQ", "id": "t097"}
+{"text": "I am trying to retrieve the password of my account", "intent": "recover_password", "category": "ACCOUNT", "flags": "BL", "id": "t098"}
+{"text": "can you help me correcting purchase {{Order Number}}?", "intent": "change_order", "category": "ORDER", "flags": "BIL", "id": "t099"}
+{"text": "I'm trying to see the current status of order {{Order Number}}", "intent": "track_order", "category": "ORDER", "flags": "BLQ", "id": "t100"}
+{"text": "getting invoice from last purchase", "intent": "get_invoice", "category": "INVOICE", "flags": "BK", "id": "t101"}
+{"text": "use {{Account Type}} account", "intent": "switch_account", "category": "ACCOUNT", "flags": "BK", "id": "t102"}
+{"text": "want help to see what payment methods are allowed", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BLQ", "id": "t103"}
+{"text": "i cant open a rpofile want help notifying of a signup error", "intent": "registration_problems", "category": "ACCOUNT", "flags": "BCLNQZ", "id": "t104"}
+{"text": "I am calling to leave a comment about your compnay", "intent": "review", "category": "FEEDBACK", "flags": "BLZ", "id": "t105"}
+{"text": "I don't know what I have to do to close my pro account", "intent": "delete_account", "category": "ACCOUNT", "flags": "BL", "id": "t106"}
+{"text": "I'm waiting for a restitution of {{Refund Amount}} dollras", "intent": "track_refund", "category": "REFUND", "flags": "BLQZ", "id": "t107"}
+{"text": "i need assistance to speak with customer service", "intent": "contact_customer_service", "category": "CONTACT", "flags": "BLQ", "id": "t108"}
+{"text": "where to list the accepted payment options", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BILQ", "id": "t109"}
+{"text": "help me to set the delivery address up", "intent": "set_up_shipping_address", "category": "SHIPPING", "flags": "BL", "id": "t110"}
+{"text": "i do not know how i can acquire several prdoucts", "intent": "place_order", "category": "ORDER", "flags": "BELMQZ", "id": "t111"}
+{"text": "problem with {{Account Type}} acconut removals", "intent": "delete_account", "category": "ACCOUNT", "flags": "BLMZ", "id": "t112"}
+{"text": "I can no longer afford order {{Order Number}}, cancel it", "intent": "cancel_order", "category": "ORDER", "flags": "BCLN", "id": "t113"}
+{"text": "assistance to submit my feedback for urproducts", "intent": "review", "category": "FEEDBACK", "flags": "BLQZ", "id": "t114"}
+{"text": "I am trying to cancel purchase {{Order Number}}", "intent": "cancel_order", "category": "ORDER", "flags": "BL", "id": "t115"}
+{"text": "assistance to file a claim against ur company", "intent": "complaint", "category": "FEEDBACK", "flags": "BLQ", "id": "t116"}
+{"text": "I want help informing of sign-up errors", "intent": "registration_problems", "category": "ACCOUNT", "flags": "BLM", "id": "t117"}
+{"text": "I try to see what shipment options are available", "intent": "delivery_options", "category": "DELIVERY", "flags": "BLM", "id": "t118"}
+{"text": "want help adding an item to order {{Order Number}}", "intent": "change_order", "category": "ORDER", "flags": "BQ", "id": "t119"}
+{"text": "shipnents to {{Delivery Country}}", "intent": "delivery_options", "category": "DELIVERY", "flags": "BLSZ", "id": "t120"}
+{"text": "I do not know how to leave some feedback about a product", "intent": "review", "category": "FEEDBACK", "flags": "BEL", "id": "t121"}
+{"text": "where to check how long the shipping takes?", "intent": "delivery_period", "category": "DELIVERY", "flags": "BIL", "id": "t122"}
+{"text": "I lost the bills from {{Person Name}}, find it for me", "intent": "check_invoice", "category": "INVOICE", "flags": "BCLM", "id": "t123"}
+{"text": "notify of errorw with online registration", "intent": "registration_problems", "category": "ACCOUNT", "flags": "BKLMZ", "id": "t124"}
+{"text": "is it possible to set up the secondary shipping address", "intent": "set_up_shipping_address", "category": "SHIPPING", "flags": "BILQ", "id": "t125"}
+{"text": "can you show me what delivery methods are available?", "intent": "delivery_options", "category": "DELIVERY", "flags": "BILM", "id": "t126"}
+{"text": "I'm trying to notify of errors with online payments", "intent": "payment_issue", "category": "PAYMENT", "flags": "BLMQ", "id": "t127"}
+{"text": "i have troubles editing my delivery address", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BLMQ", "id": "t128"}
+{"text": "how can i purchase something", "intent": "place_order", "category": "ORDER", "flags": "BILQZ", "id": "t129"}
+{"text": "show me the cancellation penalty", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BL", "id": "t130"}
+{"text": "i want help speaking to a person", "intent": "contact_human_agent", "category": "CONTACT", "flags": "BLQ", "id": "t131"}
+{"text": "where do I correct my address?", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BIL", "id": "t132"}
+{"text": "can you help me shop a few of your article?", "intent": "place_order", "category": "ORDER", "flags": "BILM", "id": "t133"}
+{"text": "i try to purchase some of ur product", "intent": "place_order", "category": "ORDER", "flags": "BLMQ", "id": "t134"}
+{"text": "help to check the early termination charge", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BL", "id": "t135"}
+{"text": "remove item from order {{Order Number}}", "intent": "change_order", "category": "ORDER", "flags": "BK", "id": "t136"}
+{"text": "can I contactcustomer assistance?", "intent": "contact_customer_service", "category": "CONTACT", "flags": "BILZ", "id": "t137"}
+{"text": "I need to set up my new shipping address", "intent": "set_up_shipping_address", "category": "SHIPPING", "flags": "BL", "id": "t138"}
+{"text": "can you help me correct my delivery address?", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BIL", "id": "t139"}
+{"text": "wanna ask for a restutution of my money", "intent": "get_refund", "category": "REFUND", "flags": "BLQZ", "id": "t140"}
+{"text": "where can I check the bloody cancellation penalties?", "intent": "check_cancellation_fee", "category": "CANCEL", "flags": "BILMW", "id": "t141"}
+{"text": "want asistance checking the eta of the order {{Order Number}}", "intent": "track_order", "category": "ORDER", "flags": "BQZ", "id": "t142"}
+{"text": "I want to know about correcting the address", "intent": "change_shipping_address", "category": "SHIPPING", "flags": "BL", "id": "t143"}
+{"text": "how to edit order {{Order Number}}?", "intent": "change_order", "category": "ORDER", "flags": "BIL", "id": "t144"}
+{"text": "help canceling my company fucking newsletter subscription", "intent": "newsletter_subscription", "category": "SUBSCRIPTION", "flags": "BLW", "id": "t145"}
+{"text": "help me checking what payment options are allowed", "intent": "check_payment_methods", "category": "PAYMENT", "flags": "BL", "id": "t146"}
+{"text": "i want assistance to correct the data included on my profile", "intent": "edit_account", "category": "ACCOUNT", "flags": "BLQ", "id": "t147"}
