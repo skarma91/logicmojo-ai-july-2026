@@ -2,7 +2,7 @@
 
 From basic Python to building agentic AI systems, taught hands-on in live classes.
 
-> Live cohort. Every class is taught live, with recordings and materials published after each class.
+> Self-paced archive. Every class is published; work through it anytime.
 
 **[View the live course site](https://skarma91.github.io/logicmojo-ai-july-2026/)**
 
@@ -94,4 +94,4 @@ Modules 1 to 6 close with a milestone assignment; Module 7 is the capstone: a
 team of agents designed and built live in class, and a second one you build
 yourself. Every module has a suggested reading list of free videos, blogs,
 articles, and book chapters, and there is one interview preparation guide per
-module. New classes are published each week as the live cohort reaches them.
+module. Every class is published; work through the course at your own pace.
