@@ -1,0 +1,9 @@
+# The deployed image: no PyTorch, no sentence-transformers.
+fastapi>=0.148
+uvicorn>=0.30
+langgraph>=1.0
+groq>=0.30
+fastembed>=0.9
+numpy>=1.26
+python-dotenv>=1.0
+langsmith>=0.4

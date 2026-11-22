@@ -1,0 +1,26 @@
+# Render Blueprint for the arXiv research team.
+# In the Render Dashboard: New > Blueprint, pick your fork of the course repo, and set the
+# Blueprint path to modules/module-6-agentic-ai/milestone-assignment/solution/render.yaml.
+services:
+  - type: web
+    name: arxiv-research-team
+    runtime: docker
+    plan: free                      # say it explicitly: an omitted plan defaults to a PAID instance
+    dockerfilePath: ./modules/module-6-agentic-ai/milestone-assignment/solution/Dockerfile
+    dockerContext: ./modules/module-6-agentic-ai/milestone-assignment/solution
+    healthCheckPath: /health
+    envVars:
+      - key: PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false                 # Render asks for the value; it never lives in the repo
+      - key: LANGSMITH_TRACING
+        value: "false"              # set to "true" once LANGSMITH_API_KEY is filled in
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: arxiv-research-team-prod
+      - key: MAX_CONCURRENT
+        value: "2"
+      - key: MIN_SCORE
+        value: "0.30"               # use the value  python eval.py --retrieval  supports on your corpus
