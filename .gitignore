@@ -162,7 +162,6 @@ tools/
 # Course modules and their submodules
 
 modules/module-7-capstone/capstone/
-modules/module-7-capstone/suggested_reading_list/
 
 # Module 4 RAG corpus: keep the shipped corpus.jsonl, ignore downlaoded PDFs and generated vectors
 
