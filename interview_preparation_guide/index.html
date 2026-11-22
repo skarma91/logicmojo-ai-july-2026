@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interview preparation guides</title>
+<link rel="stylesheet" href="../assets/theme.css">
+<style>
+  body { background:#fff; color:var(--c-ink); font-family:var(--font-body); margin:0; }
+  .wrap { max-width:860px; margin:0 auto; padding:40px 24px 72px; }
+  .topbar { margin-bottom:20px; font-size:0.9rem; display:flex; gap:18px; flex-wrap:wrap; }
+  .topbar a { color:var(--c-accent); text-decoration:none; }
+  .topbar a:hover { text-decoration:underline; }
+  .md h1 { font-size:2rem; border-bottom:2px solid var(--c-line); padding-bottom:.3em; margin:0 0 16px; }
+  .md h2 { font-size:1.4rem; border-bottom:1px solid var(--c-line); padding-bottom:.3em; margin:28px 0 14px; }
+  .md h3 { font-size:1.15rem; margin:22px 0 10px; }
+  .md p, .md li { line-height:1.7; }
+  .md a { color:var(--c-accent); text-decoration:none; }
+  .md a:hover { text-decoration:underline; }
+  .md code { background:var(--c-surface); border-radius:6px; padding:.15em .4em; font-family:var(--font-mono); font-size:0.88em; }
+  .md pre { background:#0f172a; color:#e8eefb; border-radius:8px; padding:16px; overflow:auto; }
+  .md pre code { background:none; color:inherit; padding:0; }
+  .md hr { border:0; border-top:1px solid var(--c-line); margin:28px 0; }
+  .md details { border:1px solid var(--c-line); border-radius:8px; padding:8px 14px; margin:8px 0 16px; }
+  .md summary { cursor:pointer; color:var(--c-accent); font-weight:600; }
+  .md blockquote { border-left:4px solid var(--c-line); margin:0; padding:4px 16px; color:var(--c-ink-soft); }
+  /* Tables as a CSS grid of blocks, so managed or high-contrast browsers keep the layout. */
+  .md .gt { display:grid; gap:1px; background:var(--c-line); border:1px solid var(--c-line); border-radius:8px; overflow:hidden; margin:12px 0 20px; font-size:0.95rem; }
+  .md .gt > div { background:#fff; padding:8px 12px; line-height:1.5; }
+  .md .gt > div.h { background:var(--c-surface); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <a href="../index.html">&larr; Back to the course</a>
+    <a href="index.html" id="all-guides" hidden>All interview guides</a>
+  </div>
+  <article class="md" id="content">Loading...</article>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script>
+  // One page shows the index (README.md) or one guide (?doc=<file>.md).
+  var GUIDES = ["1_python_for_ai.md", "2_ml_dl_essentials.md", "3_nlp_to_transformers.md",
+                "4_llms_and_genai.md", "5_ai_agents.md", "6_agentic_ai.md"];
+  var doc = new URLSearchParams(location.search).get("doc");
+  var file = GUIDES.indexOf(doc) >= 0 ? doc : "README.md";
+  if (file !== "README.md") document.getElementById("all-guides").hidden = false;
+
+  fetch(file)
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function (md) {
+      var el = document.getElementById("content");
+      el.innerHTML = marked.parse(md);
+      // Tables become a CSS grid of divs, so managed or high-contrast browsers keep the layout.
+      el.querySelectorAll("table").forEach(function (t) {
+        var rows = Array.prototype.slice.call(t.rows), cols = rows.length ? rows[0].cells.length : 1;
+        var grid = document.createElement("div");
+        grid.className = "gt";
+        grid.style.gridTemplateColumns = "repeat(" + cols + ", auto)";
+        rows.forEach(function (row, i) {
+          Array.prototype.forEach.call(row.cells, function (cell) {
+            var d = document.createElement("div");
+            if (i === 0) d.className = "h";
+            d.innerHTML = cell.innerHTML;
+            grid.appendChild(d);
+          });
+        });
+        t.replaceWith(grid);
+      });
+      // Links to a guide open it in this viewer, so it renders instead of showing raw markdown.
+      el.querySelectorAll("a[href]").forEach(function (a) {
+        var href = a.getAttribute("href");
+        if (GUIDES.indexOf(href) >= 0) a.setAttribute("href", "index.html?doc=" + href);
+      });
+      document.title = (el.querySelector("h1") || {}).textContent || document.title;
+      window.scrollTo(0, 0);
+    })
+    .catch(function () { document.getElementById("content").textContent = "Could not load " + file; });
+</script>
+</body>
+</html>

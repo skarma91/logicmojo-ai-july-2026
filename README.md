@@ -82,7 +82,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [Suggested reading](modules/module-7-capstone/suggested_reading_list/)
 
 ### Resources
-- Interview preparation guides (upcoming)
+- [Interview preparation guides](interview_preparation_guide/)
 <!-- COURSE-ROADMAP:END -->
 
 ## About
