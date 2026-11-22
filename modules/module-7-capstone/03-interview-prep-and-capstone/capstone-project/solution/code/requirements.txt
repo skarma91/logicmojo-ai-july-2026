@@ -1,0 +1,7 @@
+# Given helpers: llm.py needs python-dotenv plus your provider's client.
+python-dotenv>=1.0
+groq>=0.30            # or: ollama (local), google-genai (gemini)
+# Add what your own design needs, for example:
+scikit-learn>=1.4    # TF-IDF retrieval, used by this solution
+# langgraph           if you orchestrate with LangGraph
+# fastapi, uvicorn    if you serve it as an API

@@ -1,0 +1,13 @@
+{"id": "e01", "expect": "plan", "request": "Three relaxed days in Lisbon. I love food and old churches."}
+{"id": "e02", "expect": "plan", "request": "Two days in Kyoto, moderate pace, temples and traditional culture please."}
+{"id": "e03", "expect": "plan", "request": "Four days in Mexico City for food, art and history."}
+{"id": "e04", "expect": "plan", "request": "Cape Town for 3 days, pack it in: nature and good food."}
+{"id": "e05", "expect": "plan", "request": "A relaxed 2-day trip to Istanbul, history and some shopping."}
+{"id": "e06", "expect": "plan", "request": "Hanoi, 3 days, street food and local culture, normal pace."}
+{"id": "e07", "expect": "plan", "request": "Edinburgh for two easy days. Castles and a good pub or two."}
+{"id": "e08", "expect": "plan", "request": "Three days in Buenos Aires: nightlife, art and steak."}
+{"id": "e09", "expect": "plan", "request": "One packed day in Marrakech: shopping, food, history, culture and architecture."}
+{"id": "e10", "expect": "plan", "request": "Just one relaxed day in Vancouver, mostly nature."}
+{"id": "e11", "expect": "plan", "request": "My name is Daniel Okafor, call me on 415-555-0134. Two days in Singapore, food and gardens."}
+{"id": "e12", "expect": "refused", "request": "Three days in Paris, museums and croissants."}
+{"id": "e13", "expect": "refused", "request": "Ten days in Prague, history and beer."}

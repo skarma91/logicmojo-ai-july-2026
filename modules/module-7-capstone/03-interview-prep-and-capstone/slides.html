@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class 7.3 - Interview prep and your capstone: the Travel Planner</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="stylesheet" href="../../../assets/theme.css">
+</head>
+<body>
+<div class="reveal">
+  <div class="deck-footer">GenAI and Agentic AI &middot; Module 7 &middot; Class 7.3</div>
+  <div class="slides">
+
+    <!-- 1. Title -->
+    <section class="title" data-background-gradient="linear-gradient(120deg, #1e3a8a 0%, #3730a3 55%, #312e81 100%)">
+      <span class="kicker">Module 7 &middot; Capstone &middot; Class 7.3</span>
+      <h1>Your capstone: a travel planner built by a team of agents</h1>
+      <p class="lead">The problem, the approach, and the high-level design of the project you build next. The low-level design is yours: that is the part interviewers will ask you to defend.</p>
+    </section>
+
+    <!-- 2. Roadmap -->
+    <section>
+      <h2><span class="eyebrow">Today</span>From a travel problem to your own design</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The business problem<span class="step-note">Who plans trips, what goes wrong, what a good plan is.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The approach<span class="step-note">A plan, a critique, a revision: why a team fits.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">High-level design<span class="step-note">The architecture and each component's job.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">The assignment<span class="step-note">What you are given, what you design, how it is assessed.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">Interviews<span class="step-note">How to talk about what you built.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Where this fits</div>
+            <div class="pill"><span class="pill-tag">You saw</span>The Customer Support Desk, designed in class 7.1 (Capstone kickoff) and built in class 7.2 (Build lab).</div>
+            <div class="pill"><span class="pill-tag">You build</span>A different product with a different shape. Reuse the habits, not the code.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Business problem -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>Planning a trip takes hours, and the shortcuts lie</h2>
+      <div class="body">
+        <p class="stmt" style="margin-top:0">A traveller has four days in Lisbon, likes food and history, and wants a relaxed pace. Today they read a dozen pages, open a map, and assemble a plan by hand over an evening or two.</p>
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Search and guidebooks</span>Accurate, but the traveller does all the assembly: which places, which day, in what order.</div>
+          <div class="callout"><span class="label">A general chatbot</span>Fast and fluent, but it invents attractions, ignores the number of days, and packs eight sights into a "relaxed" day.</div>
+          <div class="callout"><span class="label">A travel agent</span>Good plans, but slow and expensive for a short city break.</div>
+        </div>
+        <p style="margin:6px 0 0"><strong>The goal:</strong> a day-by-day plan in under a minute that respects the traveller's constraints, uses only places found in a real guide, and cites where each one came from.</p>
+      </div>
+    </section>
+
+    <!-- 4. A good plan -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>What a good plan must satisfy</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Hard constraints: checkable in code</div>
+            <ul class="tight">
+              <li><strong>Days:</strong> exactly as many days as requested.</li>
+              <li><strong>Pace:</strong> no more than a set number of activities per day for the chosen pace.</li>
+              <li><strong>Grounding:</strong> every place appears in the guide text the system retrieved, with its source.</li>
+              <li><strong>Interests:</strong> each stated interest shows up somewhere in the plan.</li>
+              <li><strong>No repeats:</strong> the same place is not scheduled twice.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Soft qualities: judged, not counted</div>
+            <ul class="tight">
+              <li>Days that make geographic sense.</li>
+              <li>Variety across the trip.</li>
+              <li>Short notes a traveller would find useful.</li>
+            </ul>
+            <div class="callout" style="margin-top:10px"><span class="label">The design consequence</span>Hard constraints go to code, where they are cheap and never ignored. Only the soft qualities need a model's judgment.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Success metrics -->
+    <section>
+      <h2><span class="eyebrow">The business problem</span>What success looks like, in numbers</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.3fr 3fr; font-size:0.86em">
+          <div class="gt-head">Metric</div><div class="gt-head">Plain meaning</div>
+          <div class="gt-accent">Constraint pass rate</div><div>The share of plans that meet every hard constraint, with a 95% Wilson interval</div>
+          <div class="gt-accent">Grounding rate</div><div>The share of scheduled places found in the retrieved guide text. Anything below 100% is a hallucination to explain.</div>
+          <div class="gt-accent">Interest coverage</div><div>The share of requested interests that appear in the plan</div>
+          <div class="gt-accent">Revisions per request</div><div>How often the critique sends a plan back; high means the planner is weak or the checks are too strict</div>
+          <div class="gt-accent">Correct refusals</div><div>For a destination with no guide, the share of runs that say so instead of inventing a plan</div>
+          <div class="gt-accent">Cost and latency</div><div>Model calls, tokens, and seconds per request, from your traces</div>
+        </div>
+        <p class="stmt" style="margin:8px 0 0">Grounding comes first. A short plan of real places beats a long plan with one invented museum.</p>
+      </div>
+    </section>
+
+    <!-- 6. The data -->
+    <section>
+      <h2><span class="eyebrow">The data</span>Wikivoyage: a free, worldwide travel guide</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">What it is</div>
+            <ul class="tight">
+              <li>An open travel guide written by volunteers, covering cities worldwide.</li>
+              <li>Each city page follows the same sections: Understand, Get around, See, Do, Eat, Drink, Stay safe.</li>
+              <li>Licensed CC BY-SA 4.0: reuse it with credit, and share what you build from it under the same terms.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">What you get</div>
+            <ul class="tight">
+              <li>A fetch script that pulls guides through the public API, one request a second.</li>
+              <li>Short chunks, one paragraph or listing each, labelled with destination, section, and page URL.</li>
+              <li>A committed sample covering 12 cities on five continents.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Why this data</span>Sections tell you what a chunk is about: a "See" chunk is a sight, an "Eat" chunk is a place to eat. That structure is free signal for your retrieval and your planner.</div>
+      </div>
+    </section>
+
+    <!-- 7. Why a team -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>Plan, critique, revise: why a team fits</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Researcher</span>Finds guide text that matches the destination and the traveller's interests. Its output is the only pool of places the plan may use.</div>
+          <div class="callout"><span class="label">Planner</span>Turns that pool into a day-by-day plan for the requested days and pace. The only agent that writes the itinerary.</div>
+          <div class="callout"><span class="label">Critic</span>Checks the plan: hard constraints in code first, then a model's judgment on the soft qualities. Sends specific feedback back to the planner.</div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">This is the writer and reviewer loop from class 6.2 (Orchestration). A first plan is rarely perfect; a bounded critique and revision is cheaper than one giant prompt that tries to get everything right at once.</p>
+      </div>
+    </section>
+
+    <!-- 8. Misconception -->
+    <section>
+      <h2><span class="eyebrow">Misconception</span>"The model already knows Lisbon. Skip retrieval."</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">What goes wrong without it</div>
+            <ul class="tight">
+              <li>Plausible places that do not exist, or closed years ago.</li>
+              <li>No source, so nobody can check a claim.</li>
+              <li>Smaller and local models know far less, so quality swings with the model you can afford.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">What retrieval gives you</div>
+            <ul class="tight">
+              <li>A closed pool of candidate places with page URLs.</li>
+              <li>A grounding check that is a simple membership test in code.</li>
+              <li>The same behaviour on a small free model as on a large one.</li>
+            </ul>
+          </div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">The model is a planner, not an encyclopedia. Everything it schedules must come from the retrieved text.</p>
+      </div>
+    </section>
+
+    <!-- 9. Principles -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>Design principles to carry over</h2>
+      <div class="body">
+        <div class="cols cols-3">
+          <div class="callout"><span class="label">Redact first</span>Travellers mention names, emails, and phone numbers. None of it reaches a model or a trace.</div>
+          <div class="callout"><span class="label">Rules in code</span>Day count, pace, grounding, and repeats are checked by functions, not by asking a model nicely.</div>
+          <div class="callout"><span class="label">Never trust model JSON</span>Validate every field of every structured reply, with a safe fallback.</div>
+          <div class="callout"><span class="label">Bounded loops</span>A fixed maximum number of revisions, then return the best valid plan or an honest failure.</div>
+          <div class="callout"><span class="label">Refuse clearly</span>No guide for the destination, or impossible constraints, means saying so, not inventing.</div>
+          <div class="callout"><span class="label">Measure it</span>Trace every step and evaluate on a fixed set of requests before you claim it works.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. Different from the demo -->
+    <section>
+      <h2><span class="eyebrow">The approach</span>How this differs from the support desk</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.2fr 2fr 2fr; font-size:0.86em">
+          <div class="gt-head"></div><div class="gt-head">Customer Support Desk (demo)</div><div class="gt-head">Travel Planner (yours)</div>
+          <div class="gt-accent">Shape</div><div>A pipeline that ends in reply or escalate</div><div>A loop: plan, critique, revise</div>
+          <div class="gt-accent">Output</div><div>One short reply</div><div>A structured, multi-day plan with sources</div>
+          <div class="gt-accent">Retrieval</div><div>Pick one of 27 articles</div><div>Gather many candidate places across sections</div>
+          <div class="gt-accent">Checks</div><div>Is the reply safe to send?</div><div>Does the plan meet every constraint?</div>
+          <div class="gt-accent">Failure path</div><div>Hand off to a person</div><div>Revise, then return the best valid plan or refuse</div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Reuse the habits, not the code</span>Redaction, validation, bounded loops, tracing, and evaluation transfer directly. The data shapes, agents, and routing must be designed for this problem.</div>
+      </div>
+    </section>
+
+    <!-- 11. HLD figure -->
+    <section>
+      <h2><span class="eyebrow">High-level design</span>The architecture on one page</h2>
+      <div class="body">
+        <div class="figure-wrap">
+          <svg viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg" style="width:100%" font-family="Segoe UI, Arial, sans-serif">
+            <defs><marker id="h73" markerWidth="6" markerHeight="6" refX="5" refY="3" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3f4a63"/></marker></defs>
+            <text x="18" y="128" font-size="15" fill="#334155">request</text>
+            <line x1="20" y1="140" x2="96" y2="140" stroke="#3f4a63" stroke-width="2" marker-end="url(#h73)"/>
+            <rect x="100" y="95" width="170" height="90" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+            <text x="185" y="130" text-anchor="middle" font-size="17" font-weight="bold" fill="#92400e">Intake</text>
+            <text x="185" y="152" text-anchor="middle" font-size="13" fill="#92400e">redact, then read</text>
+            <text x="185" y="170" text-anchor="middle" font-size="13" fill="#92400e">the constraints</text>
+            <line x1="270" y1="140" x2="336" y2="140" stroke="#3f4a63" stroke-width="2" marker-end="url(#h73)"/>
+            <rect x="340" y="90" width="220" height="100" rx="12" fill="#e0e7ff" stroke="#4338ca" stroke-width="2"/>
+            <text x="450" y="128" text-anchor="middle" font-size="18" font-weight="bold" fill="#312e81">Supervisor</text>
+            <text x="450" y="152" text-anchor="middle" font-size="13" fill="#312e81">who works next</text>
+            <text x="450" y="170" text-anchor="middle" font-size="13" fill="#312e81">bounded revisions</text>
+            <rect x="675" y="20" width="305" height="74" rx="12" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+            <text x="827" y="50" text-anchor="middle" font-size="16" font-weight="bold" fill="#115e59">Researcher</text>
+            <text x="827" y="74" text-anchor="middle" font-size="13" fill="#475569">retrieval over guide chunks</text>
+            <rect x="675" y="113" width="305" height="74" rx="12" fill="#ffffff" stroke="#6366f1" stroke-width="2"/>
+            <text x="827" y="143" text-anchor="middle" font-size="16" font-weight="bold" fill="#312e81">Planner (model)</text>
+            <text x="827" y="167" text-anchor="middle" font-size="13" fill="#475569">day-by-day plan from the pool</text>
+            <rect x="675" y="206" width="305" height="74" rx="12" fill="#ffffff" stroke="#be123c" stroke-width="2"/>
+            <text x="827" y="236" text-anchor="middle" font-size="16" font-weight="bold" fill="#9f1239">Critic</text>
+            <text x="827" y="260" text-anchor="middle" font-size="13" fill="#475569">code checks, then judgment</text>
+            <line x1="560" y1="115" x2="671" y2="62" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h73)"/>
+            <line x1="560" y1="145" x2="671" y2="150" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h73)"/>
+            <line x1="560" y1="175" x2="671" y2="238" stroke="#3f4a63" stroke-width="1.6" marker-end="url(#h73)"/>
+            <path d="M 980 243 C 1000 200, 1000 190, 980 150" fill="none" stroke="#be123c" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#h73)"/>
+            <text x="965" y="200" text-anchor="end" font-size="11" fill="#9f1239">feedback to the planner</text>
+            <rect x="250" y="300" width="240" height="74" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+            <text x="370" y="330" text-anchor="middle" font-size="16" font-weight="bold" fill="#14532d">Itinerary with sources</text>
+            <text x="370" y="354" text-anchor="middle" font-size="13" fill="#14532d">every place cited</text>
+            <rect x="530" y="300" width="230" height="74" rx="12" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="645" y="330" text-anchor="middle" font-size="16" font-weight="bold" fill="#7f1d1d">Honest refusal</text>
+            <text x="645" y="354" text-anchor="middle" font-size="13" fill="#7f1d1d">no guide, or impossible</text>
+            <line x1="425" y1="190" x2="380" y2="296" stroke="#16a34a" stroke-width="1.8" marker-end="url(#h73)"/>
+            <line x1="475" y1="190" x2="630" y2="296" stroke="#dc2626" stroke-width="1.8" marker-end="url(#h73)"/>
+            <text x="880" y="322" text-anchor="middle" font-size="13" fill="#64748b">every step: a trace line</text>
+            <text x="880" y="342" text-anchor="middle" font-size="12" fill="#64748b">(time, calls, tokens; no text)</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12. Intake -->
+    <section>
+      <h2><span class="eyebrow">Component 1</span>Intake: redact, then read the constraints</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Its job</div>
+            <ul class="tight">
+              <li>Remove personal data from the request before anything else sees it.</li>
+              <li>Turn a free-text request into explicit constraints: destination, number of days, pace, interests.</li>
+              <li>Reject what it cannot plan: no destination, zero days, or a destination with no guide.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Example</div>
+            <div class="callout"><span class="label">In</span>"Hi, I'm Priya Shah (priya@mail.com). Four relaxed days in Lisbon, I love food and old churches."</div>
+            <div class="grid-table" style="grid-template-columns: 1fr 1.4fr; font-size:0.84em; margin-top:10px">
+              <div class="gt-head">Constraint</div><div class="gt-head">Value</div>
+              <div>destination</div><div>Lisbon</div>
+              <div>days</div><div>4</div>
+              <div>pace</div><div>relaxed</div>
+              <div>interests</div><div>food, history</div>
+            </div>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Your decision</span>Read the constraints with a model and validate them in code, or offer a structured form and skip the model here. Both are defensible; say which and why.</div>
+      </div>
+    </section>
+
+    <!-- 13. Researcher -->
+    <section>
+      <h2><span class="eyebrow">Component 2</span>The researcher: build the pool of real places</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Its job</div>
+            <ul class="tight">
+              <li>Find the guide chunks for the destination that match each interest and each useful section.</li>
+              <li>Return a pool of candidate places, each with its section and page URL.</li>
+              <li>Report when the guide is too thin to plan the requested days.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Questions your design must answer</div>
+            <ul class="tight">
+              <li>How do you search: TF-IDF, character n-grams, or embeddings? Measure before you choose.</li>
+              <li>How do you turn a paragraph into a named place the critic can check?</li>
+              <li>How big a pool for a four-day trip, and how do you balance sections?</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">No model required</span>Retrieval can be plain code, as the support desk's knowledge agent was. Spend model calls where language judgment is needed.</div>
+      </div>
+    </section>
+
+    <!-- 14. Planner -->
+    <section>
+      <h2><span class="eyebrow">Component 3</span>The planner: a plan from the pool, and only the pool</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Its job</div>
+            <ul class="tight">
+              <li>Arrange places from the pool into the requested days at the requested pace.</li>
+              <li>Return a structured plan your code can check, not prose.</li>
+              <li>On a revision, fix exactly what the critic reported.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">What it must not do</div>
+            <ul class="tight">
+              <li>Add a place that is not in the pool.</li>
+              <li>Invent opening hours, prices, or travel times the guide does not state.</li>
+              <li>See personal data or the whole guide; give it the pool and the constraints.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Structured output</span>Ask for a fixed shape and validate it, as in class 4.3 (Structured outputs and tool calling). A plan your code cannot parse counts as a failed attempt.</div>
+      </div>
+    </section>
+
+    <!-- 15. Critic -->
+    <section>
+      <h2><span class="eyebrow">Component 4</span>The critic: code first, judgment second</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Exact checks, in code</div>
+            <ul class="tight">
+              <li>The plan has exactly the requested number of days.</li>
+              <li>No day exceeds the pace limit.</li>
+              <li>Every place is in the researcher's pool.</li>
+              <li>Every interest appears at least once; no place appears twice.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Judgment, by a model</div>
+            <ul class="tight">
+              <li>Do the days make sense as days? Variety, rhythm, rough geography.</li>
+              <li>Only asked once the exact checks pass, so you never pay for an opinion on a broken plan.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:10px"><span class="label">Feedback that works</span>"Day 3 has 5 activities; the relaxed limit is 3" fixes a plan. "Please improve the plan" does not. The critic's output is the planner's next input, so make it specific.</div>
+      </div>
+    </section>
+
+    <!-- 16. Supervisor and loop -->
+    <section>
+      <h2><span class="eyebrow">Component 5</span>The supervisor and the review loop</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Its job</div>
+            <ul class="tight">
+              <li>Run the researcher once, then the planner and the critic in a loop.</li>
+              <li>Stop when the critic approves, or after a fixed number of revisions.</li>
+              <li>On the cap: return the best plan that passes the exact checks, clearly marked, or refuse.</li>
+              <li>Hold a hard step limit, whatever the rules say.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">How many rounds to expect</div>
+            <p style="margin:0">$$E[\text{rounds}] = \frac{1 - (1-q)^k}{q}$$</p>
+            <p style="margin:4px 0 0; font-size:0.86em">\(q\) is the chance a plan passes the critic, \(k\) the revision cap. With \(q = 0.6\) and \(k = 3\): \((1 - 0.4^3)/0.6 \approx 1.56\) rounds. This is the bounded-loop formula from class 6.2 (Orchestration); measure your own \(q\) from traces.</p>
+          </div>
+        </div>
+        <div class="callout" style="margin-top:8px"><span class="label">Your decision</span>Plain Python, like the support desk, or LangGraph, like Module 6 (Agentic AI). Either is fine; justify it in your design document.</div>
+      </div>
+    </section>
+
+    <!-- 17. Tracing and eval -->
+    <section>
+      <h2><span class="eyebrow">Component 6</span>Tracing and evaluation</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Tracing</div>
+            <ul class="tight">
+              <li>One record per step: which agent, how long, how many model calls and tokens, any error.</li>
+              <li>No request text or personal data in traces.</li>
+              <li>Enough to answer "why did request 7 take four rounds?" from the file alone.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Evaluation</div>
+            <ul class="tight">
+              <li>At least 10 fixed requests across several cities, paces, and trip lengths.</li>
+              <li>Include hard cases: a city with no guide, more interests than days, a one-day trip.</li>
+              <li>Report every metric from the success slide, with intervals where n is small.</li>
+              <li>The methods from class 6.7 (Evaluating agentic systems).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 18. Hard cases -->
+    <section>
+      <h2><span class="eyebrow">Risks</span>Cases your design must handle on purpose</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.6fr 2.6fr; font-size:0.86em">
+          <div class="gt-head">Case</div><div class="gt-head">Behaviour to design</div>
+          <div class="gt-accent">Destination with no guide</div><div>Refuse and say which destinations are available. Never plan from the model's memory.</div>
+          <div class="gt-accent">Guide too thin for the trip</div><div>Plan fewer days and say why, or explain the gap; do not pad with invented places.</div>
+          <div class="gt-accent">Five interests, one day</div><div>Cover what fits and say what was left out.</div>
+          <div class="gt-accent">Planner keeps failing a check</div><div>Stop at the revision cap; return the best valid plan, clearly marked, or refuse.</div>
+          <div class="gt-accent">Personal data in the request</div><div>Redacted before any model or trace; restored only if the output needs it.</div>
+          <div class="gt-accent">Provider rate limit (HTTP 429)</div><div>Retries with backoff are already in the given <code>llm.py</code>; keep calls per request low.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 19. Given vs design -->
+    <section>
+      <h2><span class="eyebrow">The assignment</span>What you are given, and what you design</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Given, in <code>capstone-project/assignment/</code></div>
+            <ul class="tight">
+              <li><code>llm.py</code>: one chat function over Groq, Ollama, or Gemini, JSON parsing, retries, cost per agent.</li>
+              <li><code>pii.py</code>: redact and restore personal data.</li>
+              <li><code>fetch_data.py</code> and <code>data/guides.jsonl</code>: real Wikivoyage chunks with sources.</li>
+              <li><code>requirements.txt</code> and <code>.env.example</code>.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Yours to design and build</div>
+            <ul class="tight">
+              <li>The data shapes and the agents' inputs and outputs.</li>
+              <li>The supervisor, the routing, and the revision cap.</li>
+              <li>Retrieval and how you extract places.</li>
+              <li>The constraint checks and the critic's feedback.</li>
+              <li>Tracing, the evaluation set, and the report.</li>
+            </ul>
+          </div>
+        </div>
+        <p class="stmt" style="margin:10px 0 0">The given files are plumbing you built in earlier modules. You are assessed on everything above them, starting with your low-level design.</p>
+      </div>
+    </section>
+
+    <!-- 20. Deliverables and assessment -->
+    <section>
+      <h2><span class="eyebrow">The assignment</span>What you submit, and how it is assessed</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 1.6fr 2.8fr 0.7fr; font-size:0.84em">
+          <div class="gt-head">Part</div><div class="gt-head">What good looks like</div><div class="gt-head">Weight</div>
+          <div class="gt-accent">Low-level design document</div><div>Modules, data shapes, agent contracts, routing rules, and the reasons for each choice</div><div>25%</div>
+          <div class="gt-accent">Working system</div><div>Runs from the README on a fresh machine; plans that pass the exact checks</div><div>25%</div>
+          <div class="gt-accent">Grounding and constraints</div><div>Code checks for every hard constraint; no invented places in the evaluation</div><div>20%</div>
+          <div class="gt-accent">Evaluation report</div><div>At least 10 requests, every metric defined and reported, failures explained</div><div>20%</div>
+          <div class="gt-accent">Tracing and privacy</div><div>Useful traces with no personal data; redaction before any model call</div><div>10%</div>
+        </div>
+        <p style="margin:8px 0 0; font-size:0.86em">Full requirements and the rubric are in <code>capstone-project/README.md</code>. A reference solution, including its own design document, is released later in <code>capstone-project/solution/</code>.</p>
+      </div>
+    </section>
+
+    <!-- 21. Interviews: the story -->
+    <section>
+      <h2><span class="eyebrow">Interviews</span>Telling the story of what you built</h2>
+      <div class="body">
+        <div class="path-layout">
+          <div class="journey">
+            <div class="step"><div class="step-num">1</div><div><div class="step-title">The problem<span class="step-note">Who it is for and what it saves them, in one sentence.</span></div></div></div>
+            <div class="step"><div class="step-num">2</div><div><div class="step-title">The design<span class="step-note">Three agents and a supervisor; why a team, and why not more.</span></div></div></div>
+            <div class="step"><div class="step-num">3</div><div><div class="step-title">A decision you defend<span class="step-note">For example, constraints in code, not in the prompt.</span></div></div></div>
+            <div class="step"><div class="step-num">4</div><div><div class="step-title">What broke<span class="step-note">A real failure from your traces, and the fix.</span></div></div></div>
+            <div class="step"><div class="step-num">5</div><div><div class="step-title">The result<span class="step-note">Your measured numbers, and what you would do next.</span></div></div></div>
+          </div>
+          <div class="practice">
+            <div class="col-label">Two minutes, then questions</div>
+            <div class="pill"><span class="pill-tag">Lead</span>Open with the problem and the result, not the framework.</div>
+            <div class="pill"><span class="pill-tag">Evidence</span>Numbers from your evaluation beat adjectives.</div>
+            <div class="pill"><span class="pill-tag">Honesty</span>Say what it does not do. Scope chosen on purpose reads as judgment.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 22. Interviews: questions -->
+    <section>
+      <h2><span class="eyebrow">Interviews</span>Questions to be ready for</h2>
+      <div class="body">
+        <div class="grid-table" style="grid-template-columns: 2fr 2.4fr; font-size:0.84em">
+          <div class="gt-head">Question</div><div class="gt-head">What a strong answer shows</div>
+          <div class="gt-accent">Why several agents, not one?</div><div>A named reason: scoped context, a review loop, checks outside the prompt</div>
+          <div class="gt-accent">How do you stop hallucinated places?</div><div>A closed pool from retrieval and a membership check in code</div>
+          <div class="gt-accent">How do you know it works?</div><div>A fixed evaluation set, defined metrics, intervals, and known failures</div>
+          <div class="gt-accent">What does a request cost?</div><div>Calls per agent from your traces, and how the revision cap bounds it</div>
+          <div class="gt-accent">Would you fine-tune for this?</div><div>Usually not: retrieval and checks solve grounding more cheaply (class 4.9, Fine-tuning I: decision and data)</div>
+          <div class="gt-accent">How would it scale to 10,000 users?</div><div>Caching, rate limits, a smaller model for intake, and where the bottleneck moves</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 23. Guides and wrap -->
+    <section>
+      <h2><span class="eyebrow">Wrap</span>Your preparation kit</h2>
+      <div class="body">
+        <div class="cols cols-2">
+          <div>
+            <div class="col-label">Interview preparation guides</div>
+            <p style="margin:0">One guide per module, from Python to agentic systems, with questions graded from warm-up to senior. The index at <code>interview_preparation_guide/</code> links them all; work through the one for any topic you would struggle to explain out loud.</p>
+            <div class="col-label" style="margin-top:12px">Your next steps</div>
+            <ul class="tight">
+              <li>Fetch the data and read a few chunks for one city.</li>
+              <li>Write your low-level design before any code.</li>
+              <li>Build the smallest loop that produces one valid plan, then measure.</li>
+            </ul>
+          </div>
+          <div>
+            <div class="col-label">Across the course</div>
+            <p class="stmt" style="margin-top:6px">From Python and the maths of learning, through transformers and LLMs, to agents, teams of agents, and a product you designed, built, measured, and can defend.</p>
+            <div class="callout"><span class="label">The capstone</span>Your Travel Planner is the project to point to: real data, a team of agents, checks in code, and numbers to back it.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+  Reveal.initialize({ hash: true, slideNumber: 'c/t', width: 1280, height: 720,
+    margin: 0, center: false, transition: 'slide', plugins: [ RevealHighlight, RevealNotes ]
+  }).then(function () {
+    if (window.renderMathInElement) {
+      renderMathInElement(document.body, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '\\(', right: '\\)', display: false } ], throwOnError: false });
+    }
+  });
+</script>
+</body>
+</html>
