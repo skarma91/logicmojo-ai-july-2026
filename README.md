@@ -4,7 +4,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 
 > Self-paced archive. Every class is published; work through it anytime.
 
-**[View the live course site](https://skarma91.github.io/logicmojo-ai-july-2026/)**
+**[View the course site](https://skarma91.github.io/logicmojo-ai-july-2026/)**
 
 ## Roadmap
 
