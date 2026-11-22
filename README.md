@@ -78,7 +78,7 @@ From basic Python to building agentic AI systems, taught hands-on in live classe
 - [7.1 Capstone kickoff](modules/module-7-capstone/01-capstone-kickoff/)
 - [7.2 Build lab: the customer support desk](modules/module-7-capstone/02-build-lab/)
 - [7.3 Interview prep and capstone](modules/module-7-capstone/03-interview-prep-and-capstone/)
-- Capstone project: the Travel Planner (upcoming)
+- [Capstone project: the Travel Planner](modules/module-7-capstone/03-interview-prep-and-capstone/capstone-project/)
 - Suggested reading (upcoming)
 
 ### Resources
